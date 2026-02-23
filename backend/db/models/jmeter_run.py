@@ -6,8 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
 
 
-class Run(Base):
-    __tablename__ = "runs"
+class JmeterRun(Base):
+    __tablename__ = "jmeter_runs"
 
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: str(uuid.uuid4())

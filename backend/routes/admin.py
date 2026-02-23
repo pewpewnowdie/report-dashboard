@@ -7,8 +7,8 @@ from db.models.user import User
 from db.models.project import Project
 from db.models.release import Release
 from db.models.project_user import ProjectUser
-from db.models.run import Run
-from pydantic import BaseModel
+from db.models.jmeter_run import JmeterRun
+from pydantic import BaseModel, Field
 
 def require_admin(
     current_user = Depends(get_current_user)
@@ -142,11 +142,11 @@ async def list_runs(
         raise HTTPException(404, "Release not found")
     
     runs = (
-        db.query(Run)
-        .options(joinedload(Run.release))
+        db.query(JmeterRun)
+        .options(joinedload(JmeterRun.release))
         .filter(
-        Run.release_id == release_id
-        ).order_by(Run.started_at.desc()).all()
+        JmeterRun.release_id == release_id
+        ).order_by(JmeterRun.started_at.desc()).all()
     )
 
     return [
