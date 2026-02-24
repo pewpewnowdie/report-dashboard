@@ -295,7 +295,7 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
             </div>
           ) : (
             <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-sm font-semibold text-foreground mb-3">Report Generated</p>
+              <p className="text-sm font-semibold text-foreground mb-3">HTML Report</p>
               <div className="flex gap-2">
                 {/* View Report Button */}
                 <a
