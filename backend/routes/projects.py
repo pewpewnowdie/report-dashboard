@@ -81,11 +81,13 @@ def get_reports(
       
   jmeter_reports = db.query(JmeterRun).join(Release).join(Project).filter(
     Project.project_key == project_key,
-    Release.id == release_id
+    Release.id == release_id,
+    JmeterRun.status == "FINISHED"
   ).all()
   pytest_reports = db.query(PytestRun).join(Release).join(Project).filter(
     Project.project_key == project_key,
-    Release.id == release_id
+    Release.id == release_id,
+    PytestRun.status == "FINISHED"
   ).all()
   result = {
     "jmeter_runs": [
@@ -108,7 +110,7 @@ def get_reports(
         "throughput": run.throughput,
         "project_key": project_key,
         "files": {
-          "jmx": { "name": run.script_name, "url": f"{request.base_url}files/{run.id}/jmx/" },
+          "jmx": { "name": run.script_name, "url": f"{request.base_url}files/jmeter/{run.id}/jmx/" },
           "jtl": { "name": run.jtl_path.split("\\")[-1] if hasattr(run, 'jtl_path') and run.jtl_path else None, "url": f"{request.base_url}files/jmeter/{run.id}/jtl/" },
           "log": { "name": run.log_path.split("\\")[-1] if hasattr(run, 'log_path') and run.log_path else None, "url": f"{request.base_url}files/jmeter/{run.id}/log/" },
         }
@@ -199,7 +201,7 @@ def get_jmeter_reports(
         "throughput": run.throughput,
         "project_key": project_key,
         "files": {
-          "jmx": { "name": run.script_name, "url": f"{request.base_url}reports/{run.id}/jmx/" },
+          "jmx": { "name": run.script_name, "url": f"{request.base_url}files/jmeter/{run.id}/jmx/" },
           "jtl": { "name": run.jtl_path.split("\\")[-1] if hasattr(run, 'jtl_path') and run.jtl_path else None, "url": f"{request.base_url}files/{run.id}/jtl/" },
           "log": { "name": run.log_path.split("\\")[-1] if hasattr(run, 'log_path') and run.log_path else None, "url": f"{request.base_url}files/{run.id}/log/" },
         }

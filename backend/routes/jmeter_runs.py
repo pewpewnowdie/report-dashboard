@@ -1,3 +1,4 @@
+from operator import index
 from fastapi import APIRouter, UploadFile, File, Header, HTTPException, Form, Query, Request, Depends
 from fastapi.responses import StreamingResponse
 from datetime import datetime
@@ -6,6 +7,7 @@ import json
 from pathlib import Path
 import zipfile
 import io
+import os
 
 from pydantic import BaseModel, Field
 from security import generate_upload_token
@@ -78,7 +80,7 @@ def run_start(req: TestStartRequest, current_user = Depends(get_current_user), d
     
     release = (
         db.query(Release)
-        .filter_by(name=req.release, project_id=project.id)
+        .filter_by(id=req.release, project_id=project.id)
         .first()
     )
 
@@ -188,7 +190,7 @@ async def run_stop(
     return { "run_id": run.id, "status": status }
 
 @router.get("/generate_report/{run_id}")
-def generate_report(run_id: str, db: Session = Depends(get_db)):
+def generate_report(run_id: str, request: Request, db: Session = Depends(get_db)):
     run = db.query(JmeterRun).filter(JmeterRun.id == run_id).first()
 
     if not run:
@@ -200,14 +202,18 @@ def generate_report(run_id: str, db: Session = Depends(get_db)):
     if not run.jtl_path:
         raise HTTPException(404, "JTL file not found")
     
+    if os.path.exists(Path(run.report_path) / "index.html"):
+        return {"report_url": f"{request.base_url}reports/{run_id}/report/index.html", "download_url": f"{request.base_url}files/jmeter/{run_id}/html"}
+
     try:
-        report_path = generate_html_report(run_id, get_jmeter())
+        jmeter_bin = get_jmeter()
+        report_path = generate_html_report(run_id, jmeter_bin, run.jtl_path)
         run.report_path = report_path
         db.commit()
     except Exception as e:
         raise HTTPException(500, f"Report generation failed: {str(e)}")
 
-    return {"report_url": f"/reports/{run_id}/report/index.html", "download_url": f"/files/jmeter/{run_id}/html"}
+    return {"report_url": f"{request.base_url}reports/{run_id}/report/index.html", "download_url": f"{request.base_url}files/jmeter/{run_id}/html"}
 
 # @router.get("/{run_id}")
 # async def get_run(

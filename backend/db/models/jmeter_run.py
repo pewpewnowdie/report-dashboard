@@ -57,4 +57,4 @@ class JmeterRun(Base):
     avg_response_time: Mapped[str] = mapped_column(String, nullable=False, default="0")
     throughput: Mapped[str] = mapped_column(String, nullable=False, default="0")
     run_status: Mapped[str] = mapped_column(String, nullable=False, default="failed")
-    script_name: Mapped[str] = mapped_column(String, nullable=False, default="test.jmx")
+    script_name: Mapped[str] = mapped_column(String, nullable=False, default="unknown.jmx")

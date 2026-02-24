@@ -7,6 +7,7 @@ EXCLUDED_PREFIXES = [
     "/auth/register",
     "/auth/login",
     "/files",
+    "/reports",
 ]
 
 async def auth_middleware(request: Request, call_next):

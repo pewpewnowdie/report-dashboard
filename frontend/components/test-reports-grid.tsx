@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
-import { getReports } from '@/lib/api'
+import { useState, useEffect } from 'react'
+import { ChevronDown, AlertCircle, CheckCircle, XCircle, User, Zap, Copy, Download, ExternalLink, Loader } from 'lucide-react'
+import { getReports, generateReport } from '@/lib/api'
 
 interface TestReportsGridProps {
   testType: 'automation' | 'load'
@@ -37,6 +37,7 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
   const total = report.total || 0
 
   const startedAt = report.started_at ? new Date(report.started_at).toLocaleString() : 'N/A'
+  const startedBy = report.started_by || 'Unknown'
 
   return (
     <div className="border border-border rounded-lg overflow-hidden cursor-pointer">
@@ -44,11 +45,17 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary transition-colors"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1">
           {getStatusIcon(report.status)}
-          <div className="text-left">
+          <div className="text-left flex-1">
             <p className="font-medium text-foreground">{report.run_name}</p>
-            <p className="text-xs text-muted-foreground">Started: {startedAt}</p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+              <span>Started: {startedAt}</span>
+              <div className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                <span>{startedBy}</span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -153,8 +160,56 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
 
 function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: string) => void }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [reportUrl, setReportUrl] = useState<string | null>(null)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [copyNotification, setCopyNotification] = useState(false)
 
   const endedAt = report.ended_at ? new Date(report.ended_at).toLocaleString() : 'N/A'
+  const startedBy = report.started_by || 'Unknown'
+  
+  // JMeter metrics are stored as strings with units
+  const errorRate = report.error_rate || '0%'
+  const avgResponseTime = report.avg_response_time || '0ms'
+  const throughput = report.throughput || '0'
+  const duration = report.duration || '0'
+  const vUsers = report.v_users || '0'
+  const scriptName = report.script_name || 'N/A'
+
+  const getErrorRateColor = (errorRateStr: string) => {
+    try {
+      const numericValue = parseFloat(errorRateStr)
+      return numericValue > 1 ? 'text-red-500' : 'text-green-500'
+    } catch {
+      return 'text-gray-500'
+    }
+  }
+
+  const handleGenerateReport = async () => {
+    setIsGenerating(true)
+
+    try {
+      const response = await generateReport(report.run_id)
+      
+      setReportUrl(response.report_url)
+      setDownloadUrl(response.download_url)
+
+      console.log('[JmeterReportItem] Report generated:', response)
+    } catch (error) {
+      console.error('[JmeterReportItem] Failed to generate report:', error)
+      alert('Failed to generate report. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleCopyUrl = () => {
+    if (reportUrl) {
+      navigator.clipboard.writeText(reportUrl)
+      setCopyNotification(true)
+      setTimeout(() => setCopyNotification(false), 2000)
+    }
+  }
 
   return (
     <div className="border border-border rounded-lg overflow-hidden cursor-pointer">
@@ -162,17 +217,23 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary transition-colors"
       >
-        <div className="flex items-center gap-3">
-          {getStatusIcon(report.run_status)}
-          <div className="text-left">
+        <div className="flex items-center gap-3 flex-1">
+          {getStatusIcon(report.run_status || 'success')}
+          <div className="text-left flex-1">
             <p className="font-medium text-foreground">{report.run_name}</p>
-            <p className="text-xs text-muted-foreground">Ended: {endedAt}</p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+              <span>Ended: {endedAt}</span>
+              <div className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                <span>{startedBy}</span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="font-semibold text-foreground">{report.avg_response_time}ms</p>
-            <p className="text-xs text-muted-foreground">Avg Response</p>
+            <p className={`font-semibold text-foreground ${getErrorRateColor(errorRate)}`}>{errorRate}</p>
+            <p className="text-xs text-muted-foreground">Error Rate</p>
           </div>
           <ChevronDown
             className={`w-5 h-5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -185,30 +246,92 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Virtual Users</p>
-              <p className="text-lg font-bold text-foreground">{report.v_users}</p>
+              <p className="text-lg font-bold text-foreground">{vUsers}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Throughput</p>
-              <p className="text-lg font-bold text-foreground">{report.throughput} req/s</p>
+              <p className="text-lg font-bold text-foreground">{throughput}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Max Response Time</p>
-              <p className="text-lg font-bold text-foreground">
-                {report.max_response_time || 'N/A'}ms
-              </p>
+              <p className="text-xs text-muted-foreground mb-1">Duration</p>
+              <p className="text-lg font-bold text-foreground">{duration}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Error Rate</p>
-              <p className={`text-lg font-bold ${report.error_rate > 1 ? 'text-red-500' : 'text-green-500'}`}>
-                {report.error_rate.toFixed(2)}%
+              <p className={`text-lg font-bold ${getErrorRateColor(errorRate)}`}>
+                {errorRate}
               </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Avg Response Time</p>
+              <p className="text-lg font-bold text-foreground">{avgResponseTime}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Script Name</p>
+              <p className="text-lg font-bold text-foreground">{scriptName}</p>
             </div>
           </div>
 
-          {report.duration && (
-            <div className="mb-4">
-              <p className="text-xs text-muted-foreground mb-1">Duration</p>
-              <p className="text-sm text-foreground">{report.duration} seconds</p>
+          {/* Generate Report Section */}
+          {!reportUrl ? (
+            <div className="mt-4 pt-4 border-t border-border">
+              <button
+                onClick={handleGenerateReport}
+                disabled={isGenerating}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Generating Report...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Generate HTML Report</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-sm font-semibold text-foreground mb-3">Report Generated</p>
+              <div className="flex gap-2">
+                {/* View Report Button */}
+                <a
+                  href={reportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>View Report</span>
+                </a>
+
+                {/* Download Report Button */}
+                <a
+                  href={downloadUrl || '#'}
+                  download
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download</span>
+                </a>
+
+                {/* Copy URL Button */}
+                <button
+                  onClick={handleCopyUrl}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors relative"
+                  title="Copy report URL to clipboard"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copyNotification && (
+                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                      Copied!
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
