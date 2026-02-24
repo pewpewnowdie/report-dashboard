@@ -6,7 +6,7 @@ from auth.jwt import verify_token
 EXCLUDED_PREFIXES = [
     "/auth/register",
     "/auth/login",
-    "/reports",
+    "/files",
 ]
 
 async def auth_middleware(request: Request, call_next):

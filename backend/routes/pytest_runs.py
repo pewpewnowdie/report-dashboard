@@ -39,6 +39,7 @@ class TestStartResponse(BaseModel):
 class TestStopMetadata(BaseModel):
     exit_code : int
     duration : str
+    ended_at: datetime
     total : int
     passed : int
     failed : int
@@ -232,6 +233,7 @@ async def run_stop(
     run.json_path = saved_paths["json_path"]
     run.log_path = saved_paths["log_path"]
     run.upload_token_used = True
+    run.ended_at = meta.ended_at
 
     for test in meta.tests:
         test_entry = PytestTest(

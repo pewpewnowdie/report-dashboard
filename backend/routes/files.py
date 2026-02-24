@@ -29,26 +29,14 @@ def make_zip_bytes(folder: Path) -> bytes:
 router = APIRouter(prefix="/files")
 
 @router.get("/jmeter/{run_id}/{file_type}")
+@router.get("/jmeter/{run_id}/{file_type}/")
 def get_jmeter_file(run_id: str,
                     file_type: str,
-                    current_user = Depends(get_current_user),
                     db: Session = Depends(get_db)):
     run = db.query(JmeterRun).filter_by(id=run_id).first()
 
     if not run:
         raise HTTPException(404, "Run not found")
-    
-    project = db.query(Project).filter_by(id=run.project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-    
-    access = db.query(ProjectUser).filter(
-        ProjectUser.user_id == current_user.id,
-        ProjectUser.project_id == project.id
-    ).first()
-
-    if not access:
-        raise HTTPException(403, "Project not accessible")
     
     file_path = None
     if file_type == "jmx":
@@ -76,26 +64,14 @@ def get_jmeter_file(run_id: str,
     return StreamingResponse(Path(file_path).open("rb"), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={Path(file_path).name}"})
 
 @router.get("/pytest/{run_id}/{file_type}")
+@router.get("/pytest/{run_id}/{file_type}/")
 def get_pytest_file(run_id: str,
                     file_type: str,
-                    current_user = Depends(get_current_user),
                     db: Session = Depends(get_db)):
     run = db.query(PytestRun).filter_by(id=run_id).first()
 
     if not run:
         raise HTTPException(404, "Run not found")
-    
-    project = db.query(Project).filter_by(id=run.project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-    
-    access = db.query(ProjectUser).filter(
-        ProjectUser.user_id == current_user.id,
-        ProjectUser.project_id == project.id
-    ).first()
-
-    if not access:
-        raise HTTPException(403, "Project not accessible")
     
     file_path = None
     if file_type == "json":

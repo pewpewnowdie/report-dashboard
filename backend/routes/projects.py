@@ -7,7 +7,6 @@ import hashlib
 import json
 from pathlib import Path
 
-from models import TestStartRequest, TestStartResponse, TestStopMetadata
 from security import generate_upload_token
 from hashing import sha256_bytes
 from persistence import save_run_files
@@ -56,7 +55,7 @@ def get_projects(
         for p in projects
     ]
 
-@router.post("/{project_key}/releases/{release_id}/")
+@router.get("/{project_key}/releases/{release_id}/")
 def get_reports(
     request: Request,
     project_key: str,
@@ -109,9 +108,9 @@ def get_reports(
         "throughput": run.throughput,
         "project_key": project_key,
         "files": {
-          "jmx": { "name": run.script_name, "url": f"{request.base_url}reports/{run.id}/jmx/" },
-          "jtl": { "name": run.jtl_path.split("\\")[-1] if hasattr(run, 'jtl_path') and run.jtl_path else None, "url": f"{request.base_url}reports/{run.id}/jtl/" },
-          "log": { "name": run.log_path.split("\\")[-1] if hasattr(run, 'log_path') and run.log_path else None, "url": f"{request.base_url}reports/{run.id}/log/" },
+          "jmx": { "name": run.script_name, "url": f"{request.base_url}files/{run.id}/jmx/" },
+          "jtl": { "name": run.jtl_path.split("\\")[-1] if hasattr(run, 'jtl_path') and run.jtl_path else None, "url": f"{request.base_url}files/jmeter/{run.id}/jtl/" },
+          "log": { "name": run.log_path.split("\\")[-1] if hasattr(run, 'log_path') and run.log_path else None, "url": f"{request.base_url}files/jmeter/{run.id}/log/" },
         }
       }
       for run in jmeter_reports
@@ -143,8 +142,8 @@ def get_reports(
           for test in run.tests if hasattr(run, 'tests')
         ],
         "files": {
-          "json": { "name": run.json_path.split("\\")[-1] if hasattr(run, 'json_path') and run.json_path else None, "url": f"{request.base_url}reports/{run.id}/json/" },
-          "csv": { "name": run.csv_path.split("\\")[-1] if hasattr(run, 'csv_path') and run.csv_path else None, "url": f"{request.base_url}reports/{run.id}/csv/" },
+          "json": { "name": run.json_path.split("\\")[-1] if hasattr(run, 'json_path') and run.json_path else None, "url": f"{request.base_url}files/pytest/{run.id}/json/" },
+          "csv": { "name": run.csv_path.split("/")[-1] if hasattr(run, 'csv_path') and run.csv_path else None, "url": f"{request.base_url}files/pytest/{run.id}/csv/" },
         }
       }
       for run in pytest_reports
@@ -152,7 +151,7 @@ def get_reports(
   }
   return result
 
-@router.post("/{project_key}/releases/{release_id}/jmeter")
+@router.get("/{project_key}/releases/{release_id}/jmeter")
 def get_jmeter_reports(
     request: Request,
     project_key: str,
@@ -201,15 +200,15 @@ def get_jmeter_reports(
         "project_key": project_key,
         "files": {
           "jmx": { "name": run.script_name, "url": f"{request.base_url}reports/{run.id}/jmx/" },
-          "jtl": { "name": run.jtl_path.split("\\")[-1] if hasattr(run, 'jtl_path') and run.jtl_path else None, "url": f"{request.base_url}reports/{run.id}/jtl/" },
-          "log": { "name": run.log_path.split("\\")[-1] if hasattr(run, 'log_path') and run.log_path else None, "url": f"{request.base_url}reports/{run.id}/log/" },
+          "jtl": { "name": run.jtl_path.split("\\")[-1] if hasattr(run, 'jtl_path') and run.jtl_path else None, "url": f"{request.base_url}files/{run.id}/jtl/" },
+          "log": { "name": run.log_path.split("\\")[-1] if hasattr(run, 'log_path') and run.log_path else None, "url": f"{request.base_url}files/{run.id}/log/" },
         }
       }
       for run in jmeter_reports
     ]
   return result
 
-@router.post("/{project_key}/releases/{release_id}/pytest")
+@router.get("/{project_key}/releases/{release_id}/pytest")
 def get_pytest_reports(
     request: Request,
     project_key: str,
@@ -264,8 +263,8 @@ def get_pytest_reports(
           for test in run.tests if hasattr(run, 'tests')
         ],
         "files": {
-          "json": { "name": run.json_path.split("\\")[-1] if hasattr(run, 'json_path') and run.json_path else None, "url": f"{request.base_url}reports/{run.id}/json/" },
-          "csv": { "name": run.csv_path.split("\\")[-1] if hasattr(run, 'csv_path') and run.csv_path else None, "url": f"{request.base_url}reports/{run.id}/csv/" },
+          "json": { "name": run.json_path.split("\\")[-1] if hasattr(run, 'json_path') and run.json_path else None, "url": f"{request.base_url}files/pytest/{run.id}/json/" },
+          "csv": { "name": run.csv_path.split("\\")[-1] if hasattr(run, 'csv_path') and run.csv_path else None, "url": f"{request.base_url}files/pytest/{run.id}/csv/" },
         }
       }
       for run in pytest_reports

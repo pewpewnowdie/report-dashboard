@@ -185,15 +185,29 @@ async def run_stop(
 
     db.commit()
 
+    return { "run_id": run.id, "status": status }
+
+@router.get("/generate_report/{run_id}")
+def generate_report(run_id: str, db: Session = Depends(get_db)):
+    run = db.query(JmeterRun).filter(JmeterRun.id == run_id).first()
+
+    if not run:
+        raise HTTPException(404, "Run not found")
+    
+    if run.status not in ("FINISHED", "FAILED"):
+        raise HTTPException(400, "Run not finished yet")
+    
+    if not run.jtl_path:
+        raise HTTPException(404, "JTL file not found")
+    
     try:
         report_path = generate_html_report(run_id, get_jmeter())
         run.report_path = report_path
         db.commit()
     except Exception as e:
-        run.report_path = None
-        db.commit()
+        raise HTTPException(500, f"Report generation failed: {str(e)}")
 
-    return { "run_id": run.id, "status": status }
+    return {"report_url": f"/reports/{run_id}/report/index.html", "download_url": f"/files/jmeter/{run_id}/html"}
 
 # @router.get("/{run_id}")
 # async def get_run(
@@ -238,43 +252,4 @@ async def run_stop(
 #             "throughput": run.throughput,
 #             "project_key": project.project_key
 #         }
-#     )
-
-# @router.get("/download/{run_id}")
-# async def download_run(
-#     request: Request,
-#     run_id: str,
-#     current_user = Depends(get_current_user),
-#     db: Session = Depends(get_db)
-# ):
-#     run = db.query(JmeterRun).filter_by(id=run_id).first()
-
-#     if not run:
-#         raise HTTPException(404, "Run not found")    
-    
-#     project = run.release.project
-    
-#     if current_user.role != "admin":
-#         access = db.query(ProjectUser).filter(
-#             ProjectUser.user_id == current_user.id,
-#             ProjectUser.project_id == project.id
-#         ).first()
-
-#         if not access:
-#             raise HTTPException(403, "No access")
-        
-#     base_dir = Path("data/run")
-#     target = base_dir / run.id
-
-#     if not target.is_dir():
-#         raise HTTPException(404, "Run not found")
-    
-#     zip_bytes = make_zip_bytes(target)
-
-#     return StreamingResponse(
-#         io.BytesIO(zip_bytes),
-#         media_type="application/zip",
-#         headers={
-#             "Content-Disposition": f"attachment; filename={target.name}.zip"
-#         },
 #     )

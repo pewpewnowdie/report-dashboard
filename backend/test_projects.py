@@ -44,4 +44,4 @@ def get_reports(project_key, release_id):
   pprint(reports_response.json())
 
 get_projects()
-get_reports("RD", "4980ca76-c1cc-44b2-b6df-24c0adfdc91f")
+# get_reports("RD", "4980ca76-c1cc-44b2-b6df-24c0adfdc91f")
