@@ -6,8 +6,8 @@ interface HeaderProps {
   projectName?: string
   release: string
   releaseName?: string
-  testType: 'automation' | 'load'
-  setTestType: (type: 'automation' | 'load') => void
+  testType: 'pytest' | 'load'
+  setTestType: (type: 'pytest' | 'load') => void
 }
 
 export function Header({ 
@@ -64,14 +64,14 @@ export function Header({
         {/* Test Type Filter */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setTestType('automation')}
+            onClick={() => setTestType('pytest')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              testType === 'automation'
+              testType === 'pytest'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-secondary'
             }`}
           >
-            Automation Tests
+            PyTest
           </button>
           <button
             onClick={() => setTestType('load')}

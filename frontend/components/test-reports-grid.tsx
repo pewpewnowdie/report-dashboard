@@ -5,10 +5,10 @@ import { ChevronDown, AlertCircle, CheckCircle, XCircle, User, Zap, Copy, Downlo
 import { getReports, generateReport, generateReportPytest } from '@/lib/api'
 
 interface TestReportsGridProps {
-  testType: 'automation' | 'load'
+  testType: 'pytest' | 'load'
   selectedProject: string
   selectedRelease: string
-  onReportSelect: (reportId: string, type: 'automation' | 'load') => void
+  onReportSelect: (reportId: string, type: 'pytest' | 'load') => void
 }
 
 function getStatusIcon(status: string) {
@@ -478,7 +478,7 @@ export function TestReportsGrid({
         // Use the data we already have (no additional API calls needed)
         let reportList = []
 
-        if (testType === 'automation') {
+        if (testType === 'pytest') {
           // Use pytest_runs from the initial fetch
           reportList = data.pytest_runs || data.pytestReports || data.pytest || []
           console.log('[TestReportsGrid] Pytest reports found:', reportList.length)
@@ -539,21 +539,21 @@ export function TestReportsGrid({
         />
       </div>
 
-      {testType === 'automation' ? (
+      {testType === 'pytest' ? (
         <div className="space-y-3">
-          <h2 className="text-lg font-bold text-foreground mb-4">Automation Tests</h2>
+          <h2 className="text-lg font-bold text-foreground mb-4">PyTest</h2>
           {reports.length > 0 ? (
             reports.map((report) => (
               <PytestReportItem
                 key={report.run_id}
                 report={report}
-                onSelect={(id) => onReportSelect(id, 'automation')}
+                onSelect={(id) => onReportSelect(id, 'pytest')}
               />
             ))
           ) : (
             <p className="text-muted-foreground">
               {allReports.length === 0
-                ? 'No automation tests available for this release.'
+                ? 'No pytest runs available for this release.'
                 : 'No tests match your search.'}
             </p>
           )}

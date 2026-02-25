@@ -22,10 +22,10 @@ export default function Page() {
   const [selectedProjectName, setSelectedProjectName] = useState<string | null>(null)
   const [selectedRelease, setSelectedRelease] = useState<string | null>(null)
   const [selectedReleaseName, setSelectedReleaseName] = useState<string | null>(null)
-  const [testType, setTestType] = useState<'automation' | 'load'>('automation')
+  const [testType, setTestType] = useState<'pytest' | 'load'>('pytest')
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('')
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
-  const [selectedReportType, setSelectedReportType] = useState<'automation' | 'load'>('automation')
+  const [selectedReportType, setSelectedReportType] = useState<'pytest' | 'load'>('pytest')
   const [error, setError] = useState<string | null>(null)
 
   // Check auth and fetch projects
