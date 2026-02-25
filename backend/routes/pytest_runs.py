@@ -22,6 +22,7 @@ from db.models.project_user import ProjectUser
 from db.models.release import Release
 from db.models.pytest_run import PytestRun
 from db.models.pytest_test import PytestTest
+import os
 
 class TestStartRequest(BaseModel):
     run_name: str
@@ -173,6 +174,7 @@ async def run_stop(
     metadata: str = Form(...),
     json_file: UploadFile = File(...),
     log: UploadFile = File(...),
+    report_zip: UploadFile = File(...),
     x_run_token: str = Header(..., alias="X-Run-Token"),
     db: Session = Depends(get_db)
 ):
@@ -202,9 +204,11 @@ async def run_stop(
 
     json_bytes = await json_file.read()
     log_bytes = await log.read()
+    report_bytes = await report_zip.read()
 
     json_hash = sha256_bytes(json_bytes)
     log_hash = sha256_bytes(log_bytes)
+    report_hash = sha256_bytes(report_bytes)
 
     if json_hash != meta.artifacts.get("json_hash"):
         raise HTTPException(400, "JSON hash mismatch")
@@ -212,11 +216,15 @@ async def run_stop(
     if log_hash != meta.artifacts.get("log_hash"):
         raise HTTPException(400, "log hash mismatch")
     
+    if report_hash != meta.artifacts.get("report_hash"):
+        raise HTTPException(400, "report zip hash mismatch")
+    
     status = "FINISHED" if meta.exit_code <= 1  else "FAILED"
 
     files = {
         "json": json_bytes,
         "log": log_bytes,
+        "report_zip": report_bytes
     }
 
     saved_paths = save_run_files_pytest(run_id, run, files)
@@ -232,6 +240,7 @@ async def run_stop(
     run.skipped = meta.skipped
     run.json_path = saved_paths["json_path"]
     run.log_path = saved_paths["log_path"]
+    run.report_path = saved_paths["report_path"]
     run.upload_token_used = True
     run.ended_at = meta.ended_at
 
@@ -243,8 +252,8 @@ async def run_stop(
             status=test.get("status"),
             duration=test.get("duration"),
             error_message=test.get("error_message"),
-            std_out=test.get("std_out"),
-            std_err=test.get("std_err")
+            std_out=test.get("stdout"),
+            std_err=test.get("stderr")
         )
         db.add(test_entry)
 
@@ -257,3 +266,18 @@ async def run_stop(
         db.commit()
 
     return { "run_id": run.id, "status": status }
+
+@router.get("/generate_report/{run_id}")
+def generate_report(run_id: str, request: Request, db: Session = Depends(get_db)):
+    run = db.query(PytestRun).filter(PytestRun.id == run_id).first()
+
+    if not run:
+        raise HTTPException(404, "Run not found")
+    
+    if run.status not in ("FINISHED", "FAILED"):
+        raise HTTPException(400, "Run not finished yet")
+    
+    if os.path.exists(Path(run.report_path) / "index.html"):
+        return {"report_url": f"{request.base_url}reports/{run_id}/report/index.html", "download_url": f"{request.base_url}files/pytest/{run_id}/html"}
+    else:
+        return {"report_url": None, "download_url": None}

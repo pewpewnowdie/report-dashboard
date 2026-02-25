@@ -80,9 +80,19 @@ def get_pytest_file(run_id: str,
         file_path = run.csv_path
     elif file_type == "log":
         file_path = run.log_path
+    elif file_type == "html":
+        html = run.report_path
     else:
         raise HTTPException(400, "Invalid file type requested")
-    
+    if file_type == "html":
+        if not html:
+            raise HTTPException(404, "Requested file not found")
+        zip_bytes = make_zip_bytes(Path(html))
+        return StreamingResponse(
+            io.BytesIO(zip_bytes),
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={Path(html).name}.zip"}
+        )
     if not file_path or not Path(file_path).is_file():
         raise HTTPException(404, "Requested file not found")
     

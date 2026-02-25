@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 from db.models.jmeter_run import JmeterRun
 from db.models.pytest_run import PytestRun
+import zipfile
+import os
+import io
 
 def save_run_files(run_id, run_data: JmeterRun, files):
     run_dir = Path("data/run") / run_id
@@ -17,9 +20,13 @@ def save_run_files(run_id, run_data: JmeterRun, files):
 def save_run_files_pytest(run_id, run_data: PytestRun, files):
     run_dir = Path("data/run") / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+    os.makedirs(run_dir / "report", exist_ok=True)
+
     run_data = run_data.__dict__
 
     (run_dir / "result.json").write_bytes(files["json"])
     (run_dir / "pytest.log").write_bytes(files["log"])
+    with zipfile.ZipFile(io.BytesIO(files["report_zip"])) as zip_ref:
+        zip_ref.extractall(run_dir / "report")
 
-    return {"json_path": str(run_dir / "result.json"), "log_path": str(run_dir / "pytest.log")}
+    return {"json_path": str(run_dir / "result.json"), "log_path": str(run_dir / "pytest.log"), "report_path": str(run_dir / "report")}

@@ -46,6 +46,7 @@ class PytestRun(Base):
     json_path: Mapped[str | None] = mapped_column(String, nullable=True)
     csv_path: Mapped[str | None] = mapped_column(String, nullable=True)
     log_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    report_path: Mapped[str | None] = mapped_column(String, nullable=True)
 
     total: Mapped[int | None] = mapped_column(nullable=True)
     passed: Mapped[int | None] = mapped_column(nullable=True)

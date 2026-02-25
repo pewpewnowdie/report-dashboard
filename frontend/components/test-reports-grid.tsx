@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ChevronDown, AlertCircle, CheckCircle, XCircle, User, Zap, Copy, Download, ExternalLink, Loader } from 'lucide-react'
-import { getReports, generateReport } from '@/lib/api'
+import { getReports, generateReport, generateReportPytest } from '@/lib/api'
 
 interface TestReportsGridProps {
   testType: 'automation' | 'load'
@@ -29,6 +29,10 @@ function getStatusColor(status: string) {
 
 function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: string) => void }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [reportUrl, setReportUrl] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [copyNotification, setCopyNotification] = useState(false)
 
   const passRate = report.total ? Math.round((report.passed / report.total) * 100) : 0
   const passed = report.passed || 0
@@ -38,6 +42,32 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
 
   const startedAt = report.started_at ? new Date(report.started_at).toLocaleString() : 'N/A'
   const startedBy = report.started_by || 'Unknown'
+  
+  const handleGenerateReport = async () => {
+    setIsGenerating(true)
+
+    try {
+      const response = await generateReportPytest(report.run_id)
+      
+      setReportUrl(response.report_url)
+      setDownloadUrl(response.download_url)
+
+      console.log('[PytestReportItem] Report generated:', response)
+    } catch (error) {
+      console.error('[PytestReportItem] Failed to generate report:', error)
+      alert('Failed to generate report. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleCopyUrl = () => {
+    if (reportUrl) {
+      navigator.clipboard.writeText(reportUrl)
+      setCopyNotification(true)
+      setTimeout(() => setCopyNotification(false), 2000)
+    }
+  }
 
   return (
     <div className="border border-border rounded-lg overflow-hidden cursor-pointer">
@@ -110,7 +140,10 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
                         <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
                       )}
                       <div className="flex-1">
-                        <p className="font-medium text-foreground">{test.name}</p>
+                        <div>
+                          <p className="font-medium text-foreground">{test.name}</p>
+                          <span className="font-medium text-muted-foreground">{test.file_path}</span>
+                        </div>
                         <p className="text-xs text-muted-foreground">Duration: {test.duration}s</p>
                         {test.error_message && (
                           <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded">
@@ -130,6 +163,69 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Generate Report Section */}
+          {!reportUrl ? (
+            <div className="mt-4 pt-4 border-t border-border">
+              <button
+                onClick={handleGenerateReport}
+                disabled={isGenerating}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Generating Report...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Generate HTML Report</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-sm font-semibold text-foreground mb-3">HTML Report</p>
+              <div className="flex gap-2">
+                {/* View Report Button */}
+                <a
+                  href={reportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>View Report</span>
+                </a>
+
+                {/* Download Report Button */}
+                <a
+                  href={downloadUrl || '#'}
+                  download
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download</span>
+                </a>
+
+                {/* Copy URL Button */}
+                <button
+                  onClick={handleCopyUrl}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors relative"
+                  title="Copy report URL to clipboard"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copyNotification && (
+                    <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                      Copied!
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
           )}

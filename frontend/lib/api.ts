@@ -176,6 +176,12 @@ export async function generateReport(runId: string) {
   })
 }
 
+export async function generateReportPytest(runId: string) {
+  return await apiCall<any>(`/pytest_runs/generate_report/${runId}`, {
+    method: 'GET',
+  })
+}
+
 /**
  * DEPRECATED: Do not use these functions.
  * 

@@ -126,9 +126,11 @@ def get_reports(
         "started_by": run.started_by.username if hasattr(run, 'started_by') else None,
         "release": run.release.id if hasattr(run, 'release') and run.release else None,
         "ended_at": run.ended_at,
+        "report_url": f"{request.base_url}reports/{run.id}/report/"
+            if run.status in ("FINISHED", "FAILED") and hasattr(run, 'report_path') else None,
         "total": run.total,
         "passed": run.passed,
-        "failed": run.passed,
+        "failed": run.failed,
         "skipped": run.skipped,
         "duration": run.duration,                      
         "tests": [
@@ -249,7 +251,7 @@ def get_pytest_reports(
         "ended_at": run.ended_at,
         "total": run.total,
         "passed": run.passed,
-        "failed": run.passed,
+        "failed": run.failed,
         "skipped": run.skipped,
         "duration": run.duration,                      
         "tests": [
