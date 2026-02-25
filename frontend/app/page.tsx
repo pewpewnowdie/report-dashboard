@@ -7,6 +7,7 @@ import { Header } from '@/components/header'
 import { TestReportsGrid } from '@/components/test-reports-grid'
 import { FullReportView } from '@/components/full-report-view'
 import { getProjects } from '@/lib/api'
+import { AlertCircle, LogOut } from 'lucide-react'
 
 interface Project {
   key: string
@@ -22,97 +23,48 @@ export default function Page() {
   const [selectedProjectName, setSelectedProjectName] = useState<string | null>(null)
   const [selectedRelease, setSelectedRelease] = useState<string | null>(null)
   const [selectedReleaseName, setSelectedReleaseName] = useState<string | null>(null)
-  const [testType, setTestType] = useState<'pytest' | 'load'>('pytest')
+  const [testType, setTestType] = useState<'automation' | 'load'>('automation')
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('')
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
-  const [selectedReportType, setSelectedReportType] = useState<'pytest' | 'load'>('pytest')
+  const [selectedReportType, setSelectedReportType] = useState<'automation' | 'load'>('automation')
   const [error, setError] = useState<string | null>(null)
 
   // Check auth and fetch projects
   useEffect(() => {
     const checkAuthAndFetchProjects = async () => {
       const token = localStorage.getItem('access_token')
-      console.log('[PAGE] ===== INITIAL AUTH CHECK =====')
-      console.log('[PAGE] Token exists:', !!token)
       
       if (!token) {
-        console.log('[PAGE] No token found, redirecting to login')
         router.push('/login')
         return
       }
 
       try {
-        console.log('[PAGE] Fetching projects from API...')
         const data = await getProjects()
-        
-        console.log('[PAGE] ===== PROJECTS FETCH RESULT =====')
-        console.log('[PAGE] Raw data received:', data)
-        console.log('[PAGE] Data type:', typeof data)
-        console.log('[PAGE] Is array:', Array.isArray(data))
-        console.log('[PAGE] Array length:', Array.isArray(data) ? data.length : 'N/A')
-        
-        if (Array.isArray(data)) {
-          console.log('[PAGE] Valid array received')
-          if (data.length > 0) {
-            console.log('[PAGE] First project:', JSON.stringify(data[0], null, 2))
-          }
-        } else {
-          console.log('[PAGE] ERROR: Data is not an array!', typeof data)
-        }
-        
         setProjects(data)
         
         // Set first project and release as default
         if (data.length > 0) {
           const firstProject = data[0]
-          console.log('[PAGE] Setting first project:', firstProject.key, 'name:', firstProject.name)
           setSelectedProject(firstProject.key)
           setSelectedProjectName(firstProject.name)
           
           if (firstProject.releases && firstProject.releases.length > 0) {
             const firstRelease = firstProject.releases[0]
-            console.log('[PAGE] Setting first release:', firstRelease.key, 'name:', firstRelease.name)
             setSelectedRelease(firstRelease.key)
             setSelectedReleaseName(firstRelease.name)
-          } else {
-            console.log('[PAGE] ERROR: First project has no releases!', firstProject)
-            setError('First project has no releases')
           }
-        } else {
-          console.log('[PAGE] ERROR: No projects in array')
-          setError('No projects returned from API')
         }
       } catch (error) {
-        console.error('[PAGE] ===== FETCH ERROR =====')
-        console.error('[PAGE] Error details:', error)
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        setError(`Failed to fetch projects: ${errorMessage}`)
-        
-        // Don't redirect immediately, let user see the error
-        setTimeout(() => {
-          router.push('/login')
-        }, 3000)
+        console.error('Failed to fetch projects:', error)
+        setError('Failed to load projects. Please try logging in again.')
       } finally {
-        console.log('[PAGE] Loading complete')
         setIsLoading(false)
       }
     }
 
     checkAuthAndFetchProjects()
   }, [router])
-
-  // Log state changes for debugging
-  useEffect(() => {
-    console.log('[PAGE] State update:', {
-      projectsCount: projects.length,
-      selectedProject,
-      selectedProjectName,
-      selectedRelease,
-      selectedReleaseName,
-      isLoading,
-      hasError: !!error,
-    })
-  }, [projects, selectedProject, selectedProjectName, selectedRelease, selectedReleaseName, isLoading, error])
 
   const handleTestTypeChange = (newType: 'automation' | 'load') => {
     setTestType(newType)
@@ -153,10 +105,15 @@ export default function Page() {
     setSelectedReportId(null)
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    router.push('/login')
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <p className="text-muted-foreground">Loading projects...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     )
   }
@@ -165,19 +122,39 @@ export default function Page() {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="max-w-md text-center">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Error Loading Projects</h2>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <div className="bg-destructive/10 border border-destructive/30 rounded p-3 mb-4">
-            <p className="text-sm text-destructive font-mono">Check browser console (F12) for detailed logs</p>
+          <div className="flex justify-center mb-4">
+            <AlertCircle className="w-12 h-12 text-red-500" />
           </div>
+          <h2 className="text-lg font-semibold text-foreground mb-2">Unable to Load Projects</h2>
+          <p className="text-muted-foreground mb-6">{error}</p>
           <button
-            onClick={() => {
-              localStorage.removeItem('access_token')
-              router.push('/login')
-            }}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
+            onClick={handleLogout}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
           >
             Return to Login
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (projects.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="max-w-md text-center">
+          <div className="flex justify-center mb-4">
+            <AlertCircle className="w-12 h-12 text-yellow-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-foreground mb-2">No Projects Available</h2>
+          <p className="text-muted-foreground mb-6">
+            Your account doesn't have any projects assigned yet. Please contact your administrator.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
           </button>
         </div>
       </div>
@@ -185,43 +162,12 @@ export default function Page() {
   }
 
   if (!selectedProject || !selectedRelease) {
-    console.log('[PAGE] ===== RENDER: NO PROJECT/RELEASE =====')
-    console.log('[PAGE] selectedProject:', selectedProject)
-    console.log('[PAGE] selectedRelease:', selectedRelease)
-    console.log('[PAGE] projects.length:', projects.length)
-    
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <div className="max-w-md text-center">
-          <h2 className="text-lg font-semibold text-foreground mb-2">No Projects Available</h2>
-          <p className="text-muted-foreground mb-4">
-            {!selectedProject && 'No project selected. '}
-            {!selectedRelease && !selectedProject && 'No release selected.'}
-          </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Projects loaded: {projects.length}
-          </p>
-          <div className="bg-secondary p-3 rounded mb-4 text-left max-h-40 overflow-auto">
-            <p className="text-xs font-mono text-foreground">
-              Open browser console (F12) to see detailed logs with [PAGE] prefix
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              localStorage.removeItem('access_token')
-              router.push('/login')
-            }}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
-          >
-            Return to Login
-          </button>
-        </div>
+        <p className="text-muted-foreground">Loading projects...</p>
       </div>
     )
   }
-
-  console.log('[PAGE] ===== MAIN RENDER =====')
-  console.log('[PAGE] Rendering with selectedProject:', selectedProject, 'selectedRelease:', selectedRelease)
 
   return (
     <div className="flex h-screen bg-background text-foreground">

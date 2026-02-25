@@ -147,6 +147,35 @@ export async function getReports(projectKey: string, releaseKey: string) {
   return response
 }
 
+export async function register(username: string, password: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      username,
+      password,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    console.error('[register] Registration failed:', error)
+    
+    try {
+      const errorData = JSON.parse(error)
+      throw new Error(errorData.detail || 'Registration failed')
+    } catch {
+      throw new Error('Registration failed')
+    }
+  }
+
+  const data = await response.json()
+  console.log('[register] Registration successful')
+  return data
+}
+
 export async function login(username: string, password: string) {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
