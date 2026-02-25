@@ -6,6 +6,7 @@ from auth.jwt import verify_token
 EXCLUDED_PREFIXES = [
     "/auth/register",
     "/auth/login",
+    "/files",
     "/reports",
 ]
 

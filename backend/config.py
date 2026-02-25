@@ -16,4 +16,4 @@ def get_jmeter():
     jmeter_cmd = shutil.which("jmeter") or shutil.which("jmeter.bat")
     if jmeter_cmd:
         return jmeter_cmd
-    return r"C:apache-jmeter-5.6.3\bin"
+    return r"C:\apache-jmeter-5.6.3\bin\jmeter"
