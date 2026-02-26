@@ -298,7 +298,20 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
 
   const handleCopyUrl = () => {
     if (reportUrl) {
-      navigator.clipboard.writeText(reportUrl)
+      const textArea = document.createElement("textarea")
+      textArea.value = reportUrl
+      textArea.style.position = "fixed"
+      textArea.style.top = "0"
+      textArea.style.left = "0"
+      textArea.style.opacity = "0"
+
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+
+      document.execCommand("copy")
+
+      document.body.removeChild(textArea)
       setCopyNotification(true)
       setTimeout(() => setCopyNotification(false), 2000)
     }

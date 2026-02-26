@@ -1,5 +1,6 @@
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Download } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
   project: string
@@ -19,6 +20,7 @@ export function Header({
   setTestType 
 }: HeaderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const router = useRouter()
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -30,6 +32,10 @@ export function Header({
     } finally {
       setIsRefreshing(false)
     }
+  }
+
+  const handleDownloadRedirect = () => {
+    router.push('/downloads')
   }
 
   // Use provided names, fall back to keys
@@ -46,19 +52,28 @@ export function Header({
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Test Reports & Analytics</p>
           </div>
-          
-          <button 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="p-2 hover:bg-muted rounded-md transition-colors disabled:opacity-50"
-            aria-label="Refresh"
-          >
-            <RefreshCw 
-              className={`w-5 h-5 text-muted-foreground hover:text-foreground ${
-                isRefreshing ? 'animate-spin' : ''
-              }`}
-            />
-          </button>
+          <div>
+            <button 
+              onClick={handleDownloadRedirect}
+              className="p-2 hover:bg-muted rounded-md transition-colors"
+              aria-label="Downloads"
+            >
+              <Download className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+            </button>
+
+            <button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="p-2 hover:bg-muted rounded-md transition-colors disabled:opacity-50"
+              aria-label="Refresh"
+            >
+              <RefreshCw 
+                className={`w-5 h-5 text-muted-foreground hover:text-foreground ${
+                  isRefreshing ? 'animate-spin' : ''
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Test Type Filter */}

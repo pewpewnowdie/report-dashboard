@@ -68,7 +68,20 @@ export default function DownloadsPage() {
   }
 
   const handleCopyUrl = (downloadUrl: string, version: string) => {
-    navigator.clipboard.writeText(downloadUrl)
+    const textArea = document.createElement("textarea")
+    textArea.value = downloadUrl
+    textArea.style.position = "fixed"
+    textArea.style.top = "0"
+    textArea.style.left = "0"
+    textArea.style.opacity = "0"
+
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    document.execCommand("copy")
+
+    document.body.removeChild(textArea)
     setCopiedVersion(version)
     setTimeout(() => setCopiedVersion(null), 2000)
   }
