@@ -11,13 +11,6 @@ interface TestReportsGridProps {
   onReportSelect: (reportId: string, type: 'pytest' | 'load') => void
 }
 
-function getStatusIcon(failed: number) {
-  if (failed > 0) {
-    return <XCircle className="w-5 h-5 text-red-500" />
-  }
-  return <CheckCircle className="w-5 h-5 text-green-500" />
-}
-
 function getStatusColor(status: string) {
   if (status === 'STARTED' || status === 'running') return 'text-yellow-500'
   if (status === 'FAILED' || status === 'failed') return 'text-red-500'
@@ -66,6 +59,17 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
     }
   }
 
+  const getStatusIcon = (failed: number, total: number, skipped: number) => {
+    if (failed > 0) {
+      return <XCircle className="w-5 h-5 text-red-500" />
+    }
+    if (total == 0 || total === skipped) {
+      return <AlertCircle className="w-5 h-5 text-yellow-500" />
+    }
+    return <CheckCircle className="w-5 h-5 text-green-500" />
+  }
+
+
   return (
     <div className="border border-border rounded-lg overflow-hidden cursor-pointer">
       <button
@@ -73,7 +77,7 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
         className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary transition-colors"
       >
         <div className="flex items-center gap-3 flex-1">
-          {getStatusIcon(report.failed)}
+          {getStatusIcon(report.failed || 0, report.total || 0, report.skipped || 0)}
           <div className="text-left flex-1">
             <p className="font-medium text-foreground">{report.run_name}</p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
@@ -317,6 +321,21 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
     }
   }
 
+  const getStatusIcon = (errorRateStr: string) => {
+    try {
+      const numericValue = parseFloat(errorRateStr)
+      if (numericValue > 5) {
+        return <XCircle className="w-5 h-5 text-red-500" />
+      }
+      if (numericValue > 1) {
+        return <AlertCircle className="w-5 h-5 text-yellow-500" />
+      }
+      return <CheckCircle className="w-5 h-5 text-green-500" />
+    } catch (error) {
+      return <AlertCircle className="w-5 h-5 text-gray-500" />
+    }
+  }
+
   return (
     <div className="border border-border rounded-lg overflow-hidden cursor-pointer">
       <button
@@ -324,7 +343,7 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
         className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary transition-colors"
       >
         <div className="flex items-center gap-3 flex-1">
-          {getStatusIcon(report.failed || 0)}
+          {getStatusIcon(errorRate)}
           <div className="text-left flex-1">
             <p className="font-medium text-foreground">{report.run_name}</p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
