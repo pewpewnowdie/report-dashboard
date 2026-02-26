@@ -53,14 +53,9 @@ export function Sidebar({
     if (!searchQuery.trim()) return projects
 
     const query = searchQuery.toLowerCase()
-    return projects.map((project) => ({
-      ...project,
-      releases: project.releases.filter((r) =>
-        r.name.toLowerCase().includes(query)
-      ),
-    })).filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) || p.releases.length > 0
+
+    return projects.filter((project) =>
+      project.name.toLowerCase().includes(query)
     )
   }, [searchQuery, projects])
 
@@ -105,7 +100,7 @@ export function Sidebar({
                         }`}
                       />
                       <FolderOpen className="w-4 h-4 text-sidebar-primary" />
-                      <span className="font-medium">{project.name}</span>
+                      <span className="font-medium truncate max-w-35">{project.name}</span>
                     </div>
                   </button>
 

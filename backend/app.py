@@ -10,6 +10,7 @@ from routes.admin import router as admin_router
 from routes.projects import router as projects_router
 from routes.pytest_runs import router as pytest_runs_router
 from routes.files import router as files_router
+from routes.applications import router as applications_router
 
 REPORT_ROOT = Path("data/run")
 app = FastAPI(title="JMCTL Server")
@@ -36,3 +37,4 @@ app.include_router(jmeter_runs_router)
 app.include_router(pytest_runs_router)
 app.include_router(projects_router)
 app.include_router(files_router)
+app.include_router(applications_router)

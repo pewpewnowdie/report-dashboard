@@ -2,32 +2,59 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { login } from '@/lib/api'
+import { register } from '@/lib/api'
 import { LogIn } from 'lucide-react'
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+  const validateForm = () => {
+    if (!username.trim()) {
+      setError('Username is required')
+      return false
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return false
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return false
+    }
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    isLoading
+
+    if (!validateForm()) {
+      return
+    }
+
+    setIsLoading(true)
 
     try {
-      const response = await login(username, password)
-      
-      if (response.access_token) {
-        localStorage.setItem('access_token', response.access_token)
-        router.push('/')
+      const response = await register(username, password)
+
+      if (response.status == 'created') {
+        console.log('[RegisterPage] Registration successful')
+        alert('Registration successful! Redirecting to login...')
+        setUsername('')
+        setPassword('')
+        setConfirmPassword('')
+        router.push('/login')
       } else {
-        setError('Invalid credentials')
+        setError('Registration failed. Please try again.')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -45,7 +72,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold text-foreground">Test Reports</h1>
           </div>
 
-          <h2 className="text-xl font-bold text-foreground mb-6 text-center">Sign In</h2>
+          <h2 className="text-xl font-bold text-foreground mb-6 text-center">Create Account</h2>
 
           {/* Error Message */}
           {error && (
@@ -54,7 +81,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Login Form */}
+          {/* Registration Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -84,24 +111,38 @@ export default function LoginPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Enter Password.."
+                className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                required
+              />
+            </div>
+
             <button
               type="submit"
               disabled={isLoading}
               className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </form>
 
-          {/* Register Link */}
+          {/* Login Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
+              Already have an account?{' '}
               <a
-                href="/register"
+                href="/login"
                 className="text-primary hover:underline font-medium"
               >
-                Sign Up
+                Sign In
               </a>
             </p>
           </div>
