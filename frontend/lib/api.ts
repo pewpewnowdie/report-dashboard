@@ -147,6 +147,17 @@ export async function getReports(projectKey: string, releaseKey: string) {
   return response
 }
 
+export async function getApplications() {
+  const response = await fetch(`${API_BASE_URL}/applications`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('access_token') : ''}`,
+    }
+  })
+  return response
+}
+
 export async function register(username: string, password: string) {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',

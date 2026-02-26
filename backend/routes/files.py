@@ -97,3 +97,11 @@ def get_pytest_file(run_id: str,
         raise HTTPException(404, "Requested file not found")
     
     return StreamingResponse(Path(file_path).open("rb"), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={Path(file_path).name}"})
+
+@router.get("/applications/{filename}")
+def get_application_file(filename: str):
+    file_path = Path("data/applications") / filename
+    if not file_path.is_file():
+        raise HTTPException(404, "Requested file not found")
+    
+    return StreamingResponse(file_path.open("rb"), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={file_path.name}"})

@@ -219,7 +219,7 @@ async def run_stop(
     if report_hash != meta.artifacts.get("report_hash"):
         raise HTTPException(400, "report zip hash mismatch")
     
-    status = "FINISHED" if meta.exit_code <= 1  else "FAILED"
+    status = "FINISHED" if meta.exit_code <= 2  else "FAILED"
 
     files = {
         "json": json_bytes,

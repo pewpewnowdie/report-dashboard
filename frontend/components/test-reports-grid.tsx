@@ -11,11 +11,8 @@ interface TestReportsGridProps {
   onReportSelect: (reportId: string, type: 'pytest' | 'load') => void
 }
 
-function getStatusIcon(status: string) {
-  if (status === 'STARTED' || status === 'running') {
-    return <AlertCircle className="w-5 h-5 text-yellow-500" />
-  }
-  if (status === 'FAILED' || status === 'failed') {
+function getStatusIcon(failed: number) {
+  if (failed > 0) {
     return <XCircle className="w-5 h-5 text-red-500" />
   }
   return <CheckCircle className="w-5 h-5 text-green-500" />
@@ -76,7 +73,7 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
         className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary transition-colors"
       >
         <div className="flex items-center gap-3 flex-1">
-          {getStatusIcon(report.status)}
+          {getStatusIcon(report.failed)}
           <div className="text-left flex-1">
             <p className="font-medium text-foreground">{report.run_name}</p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
@@ -314,7 +311,7 @@ function JmeterReportItem({ report, onSelect }: { report: any; onSelect: (id: st
         className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary transition-colors"
       >
         <div className="flex items-center gap-3 flex-1">
-          {getStatusIcon(report.run_status || 'success')}
+          {getStatusIcon(report.failed || 0)}
           <div className="text-left flex-1">
             <p className="font-medium text-foreground">{report.run_name}</p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
