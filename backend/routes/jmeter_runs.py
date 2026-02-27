@@ -202,7 +202,7 @@ def generate_report(run_id: str, request: Request, db: Session = Depends(get_db)
     if not run.jtl_path:
         raise HTTPException(404, "JTL file not found")
     
-    if os.path.exists(Path(run.report_path) / "index.html"):
+    if run.report_path and os.path.exists(Path(run.report_path) / "index.html"):
         return {"report_url": f"{request.base_url}reports/{run_id}/report/index.html", "download_url": f"{request.base_url}files/jmeter/{run_id}/html"}
 
     try:

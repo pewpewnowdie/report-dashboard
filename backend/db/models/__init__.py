@@ -7,3 +7,5 @@ from .project_user import ProjectUser
 from .jmeter_run import JmeterRun
 from .pytest_run import PytestRun
 from .pytest_test import PytestTest
+from .robot_run import RobotRun
+from .robot_test import RobotTest

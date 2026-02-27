@@ -23,10 +23,10 @@ export default function Page() {
   const [selectedProjectName, setSelectedProjectName] = useState<string | null>(null)
   const [selectedRelease, setSelectedRelease] = useState<string | null>(null)
   const [selectedReleaseName, setSelectedReleaseName] = useState<string | null>(null)
-  const [testType, setTestType] = useState<'pytest' | 'load'>('pytest')
+  const [testType, setTestType] = useState<'pytest' | 'load' | 'robot'>('pytest')
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState('')
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
-  const [selectedReportType, setSelectedReportType] = useState<'pytest' | 'load'>('pytest')
+  const [selectedReportType, setSelectedReportType] = useState<'pytest' | 'load' | 'robot'>('pytest')
   const [error, setError] = useState<string | null>(null)
 
   // Check auth and fetch projects
@@ -66,7 +66,7 @@ export default function Page() {
     checkAuthAndFetchProjects()
   }, [router])
 
-  const handleTestTypeChange = (newType: 'pytest' | 'load') => {
+  const handleTestTypeChange = (newType: 'pytest' | 'load' | 'robot') => {
     setTestType(newType)
     setSelectedReportId(null)
   }

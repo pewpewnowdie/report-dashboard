@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import uuid
 import datetime
+import subprocess
 
 def get_work_dir(run_id=None):
     if not run_id:
@@ -17,3 +18,13 @@ def get_jmeter():
     if jmeter_cmd:
         return jmeter_cmd
     return r"C:\apache-jmeter-5.6.3\bin\jmeter"
+
+def get_rebot():
+    rebot_path = subprocess.run(["where", "rebot"], capture_output=True, text=True).stdout.strip()
+    for path in rebot_path.splitlines():
+        if "Scripts" in path and ".venv" in path.lower():
+            continue
+        if "AppData" in path and "Temp" in path:
+            continue
+        return [path]
+    raise FileNotFoundError("rebot not found in PATH. Please install robot framework to use rctl.")

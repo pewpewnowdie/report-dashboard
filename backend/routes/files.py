@@ -16,6 +16,7 @@ from db.models.project_user import ProjectUser
 from db.models.release import Release
 from db.models.jmeter_run import JmeterRun
 from db.models.pytest_run import PytestRun
+from db.models.robot_run import RobotRun
 
 def make_zip_bytes(folder: Path) -> bytes:
     buffer = io.BytesIO()
@@ -93,6 +94,38 @@ def get_pytest_file(run_id: str,
             media_type="application/zip",
             headers={"Content-Disposition": f"attachment; filename={Path(html).name}.zip"}
         )
+    if not file_path or not Path(file_path).is_file():
+        raise HTTPException(404, "Requested file not found")
+    
+    return StreamingResponse(Path(file_path).open("rb"), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={Path(file_path).name}"})
+
+@router.get("/robot/{run_id}/{file_type}")
+@router.get("/robot/{run_id}/{file_type}/")
+def get_robot_file(run_id: str,
+                    file_type: str,
+                    db: Session = Depends(get_db)):
+    run = db.query(RobotRun).filter_by(id=run_id).first()
+
+    if not run:
+        raise HTTPException(404, "Run not found")
+    
+    file_path = None
+    if file_type == "xml":
+        file_path = run.xml_path
+    elif file_type == "report":
+        file_path = run.report_path
+    else:
+        raise HTTPException(400, "Invalid file type requested")
+    
+    if file_type == "report":
+      file_path = Path(file_path).parent
+      zip_bytes = make_zip_bytes(file_path)
+      return StreamingResponse(
+          io.BytesIO(zip_bytes),
+          media_type="application/zip",
+          headers={"Content-Disposition": f"attachment; filename={file_path.name}.zip"}
+      )
+    
     if not file_path or not Path(file_path).is_file():
         raise HTTPException(404, "Requested file not found")
     
