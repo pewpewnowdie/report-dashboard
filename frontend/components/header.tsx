@@ -7,8 +7,8 @@ interface HeaderProps {
   projectName?: string
   release: string
   releaseName?: string
-  testType: 'pytest' | 'load'
-  setTestType: (type: 'pytest' | 'load') => void
+  testType: 'pytest' | 'load' | 'robot'
+  setTestType: (type: 'pytest' | 'load' | 'robot') => void
 }
 
 export function Header({ 
@@ -97,6 +97,16 @@ export function Header({
             }`}
           >
             Load Tests
+          </button>
+          <button
+            onClick={() => setTestType('robot')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              testType === 'robot'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-secondary'
+            }`}
+          >
+            Robot Framework
           </button>
         </div>
       </div>

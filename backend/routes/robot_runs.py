@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from security import generate_upload_token
 from hashing import sha256_bytes
 from persistence import save_run_files_robot
+from config import get_rebot
+from reporting import generate_html_report_robot
 from auth.deps import get_current_user
 from sqlalchemy.orm import Session
 from db.deps import get_db
@@ -182,7 +184,19 @@ def generate_report(run_id: str, request: Request, db: Session = Depends(get_db)
     if run.status not in ("FINISHED", "FAILED"):
         raise HTTPException(400, "Run not finished yet")
     
-    if os.path.exists(Path(run.report_path) / "index.html"):
-        return {"report_url": f"{request.base_url}reports/{run_id}/report/index.html", "download_url": f"{request.base_url}files/robot/{run_id}/html"}
-    else:
-        return {"report_url": None, "download_url": None}
+    if not run.xml_path or not os.path.exists(run.xml_path):
+        raise HTTPException(404, "XML file not found")
+    
+    if run.report_path and os.path.exists(Path(run.report_path) / "report.html"):
+        return {"report_url": f"{request.base_url}reports/{run_id}/report/report.html", "download_url": f"{request.base_url}files/robot/{run_id}/report"}
+
+    try:
+        rebot_bin = get_rebot()
+        report_path, log_path = generate_html_report_robot(run_id, rebot_bin, run.xml_path)
+        run.report_path = report_path
+        run.log_path = log_path
+        db.commit()
+    except Exception as e:
+        raise HTTPException(500, f"Report generation failed: {str(e)}")
+
+    return {"report_url": f"{request.base_url}reports/{run_id}/report/report.html", "download_url": f"{request.base_url}files/robot/{run_id}/report"}

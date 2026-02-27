@@ -21,6 +21,7 @@ from db.models.release import Release
 from db.models.project_user import ProjectUser
 from db.models.jmeter_run import JmeterRun
 from db.models.pytest_run import PytestRun
+from db.models.robot_run import RobotRun
 
 router = APIRouter(prefix="/projects")
 
@@ -89,6 +90,11 @@ def get_reports(
     Release.id == release_id,
     PytestRun.status == "FINISHED"
   ).all()
+  robot_reports = db.query(RobotRun).join(Release).join(Project).filter(
+    Project.project_key == project_key,
+    Release.id == release_id,
+    RobotRun.status == "FINISHED"
+  ).all()
   result = {
     "jmeter_runs": [
       {
@@ -151,6 +157,40 @@ def get_reports(
         }
       }
       for run in pytest_reports
+    ],
+    "robot_runs": [
+      {
+        "run_id": run.id,
+        "run_name": run.run_name,
+        "status": run.status,
+        "started_at": run.started_at,
+        "started_by": run.started_by.username if hasattr(run, 'started_by') else None,
+        "release": run.release.id if hasattr(run, 'release') and run.release else None,
+        "ended_at": run.ended_at,
+        "report_url": f"{request.base_url}reports/{run.id}/report/"
+            if run.status in ("FINISHED", "FAILED") and hasattr(run, 'report_path') else None,
+        "total": run.total,
+        "passed": run.passed,
+        "failed": run.failed,
+        "skipped": run.skipped,
+        "duration": run.duration,                      
+        "tests": [
+          {
+            "test_id": test.id,
+            "name": test.name,
+            "status": test.status,
+            "duration": test.duration,                
+            "info": test.info if hasattr(test, 'info') else None,
+            "warn": test.warn if hasattr(test, 'warn') else None,
+            "error": test.error if hasattr(test, 'error') else None,
+            "debug": test.debug if hasattr(test, 'debug') else None
+          }
+          for test in run.tests if hasattr(run, 'tests')
+        ],
+        "files": {
+          "xml": { "name": run.xml_path.split("\\")[-1] if hasattr(run, 'xml_path') and run.xml_path else None, "url": f"{request.base_url}files/robot/{run.id}/xml/" },
+        }
+      } for run in robot_reports
     ]
   }
   return result

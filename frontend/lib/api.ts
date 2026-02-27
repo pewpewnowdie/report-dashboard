@@ -222,15 +222,11 @@ export async function generateReportPytest(runId: string) {
   })
 }
 
-/**
- * DEPRECATED: Do not use these functions.
- * 
- * The data is already available from getReports() which returns
- * complete report information. These individual fetch calls are unnecessary.
- * 
- * Use the data directly from:
- * const { jmeter_runs, pytest_runs } = await getReports(projectKey, releaseKey)
- */
+export async function generateReportRobot(runId: string) {
+  return await apiCall<any>(`/robot_runs/generate_report/${runId}`, {
+    method: 'GET',
+  })
+}
 
 export async function getJmeterRun(runId: string) {
   console.warn('[getJmeterRun] DEPRECATED: Use data from getReports() instead')
@@ -240,4 +236,9 @@ export async function getJmeterRun(runId: string) {
 export async function getPytestRun(runId: string) {
   console.warn('[getPytestRun] DEPRECATED: Use data from getReports() instead')
   return apiCall(`/pytest_runs/${runId}`)
+}
+
+export async function getRobotRun(runId: string) {
+  console.warn('[getRobotRun] DEPRECATED: Use data from getReports() instead')
+  return apiCall(`/robot_runs/${runId}`)
 }
