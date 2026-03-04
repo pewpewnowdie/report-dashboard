@@ -8,6 +8,8 @@ EXCLUDED_PREFIXES = [
     "/auth/login",
     "/files",
     "/reports",
+    "/docs",
+    "/openapi.json"
 ]
 
 async def auth_middleware(request: Request, call_next):

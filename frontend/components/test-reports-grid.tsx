@@ -425,7 +425,7 @@ function RobotReportItem({ report, onSelect }: { report: any; onSelect: (id: str
                         className="w-full flex items-start gap-2 p-3 hover:bg-secondary/50 transition-colors text-left"
                       >
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {test.status === 'passed' ? (
+                          {test.status === 'PASS' ? (
                             <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                           ) : (
                             <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
