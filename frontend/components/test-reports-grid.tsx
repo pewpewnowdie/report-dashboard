@@ -23,6 +23,7 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
   const [isGenerating, setIsGenerating] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [copyNotification, setCopyNotification] = useState(false)
+  const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set())
 
   const passRate = report.total ? Math.round((report.passed / report.total) * 100) : 0
   const passed = report.passed || 0
@@ -57,6 +58,16 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
       setCopyNotification(true)
       setTimeout(() => setCopyNotification(false), 2000)
     }
+  }
+
+  const toggleTestExpanded = (idx: number) => {
+    const newExpanded = new Set(expandedTests)
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx)
+    } else {
+      newExpanded.add(idx)
+    }
+    setExpandedTests(newExpanded)
   }
 
   const getStatusIcon = (failed: number, total: number, skipped: number) => {
@@ -131,39 +142,61 @@ function PytestReportItem({ report, onSelect }: { report: any; onSelect: (id: st
           {report.tests && report.tests.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-sm font-semibold text-foreground mb-3">Test Results ({report.tests.length})</p>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {report.tests.map((test: any, idx: number) => (
-                  <div key={idx} className="text-xs p-3 bg-card rounded border border-border/50">
-                    <div className="flex items-start gap-2">
-                      {test.status === 'passed' ? (
-                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="flex-1">
-                        <div>
-                          <p className="font-medium text-foreground">{test.name}</p>
-                          <span className="font-medium text-muted-foreground">{test.file_path}</span>
+              <div className="space-y-2">
+                {report.tests.map((test: any, idx: number) => {
+                  const isExpanded = expandedTests.has(idx)
+                  const hasDetails = test.error_message || test.std_out
+
+                  return (
+                    <div key={idx} className="text-xs bg-card rounded border border-border/50 overflow-hidden">
+                      <button
+                        onClick={() => toggleTestExpanded(idx)}
+                        className="w-full flex items-start gap-2 p-3 hover:bg-secondary/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {test.status === 'passed' ? (
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{test.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{test.file_path}</p>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">Duration: {test.duration}s</p>
-                        {test.error_message && (
-                          <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded">
-                            <p className="text-red-500 font-mono text-xs whitespace-pre-wrap break-words">
-                              {test.error_message}
-                            </p>
-                          </div>
-                        )}
-                        {test.std_out && (
-                          <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded">
-                            <p className="text-blue-500 font-mono text-xs whitespace-pre-wrap break-words">
-                              {test.std_out}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground">{test.duration}s</span>
+                          {hasDetails && (
+                            <ChevronDown
+                              className={`w-4 h-4 text-muted-foreground transition-transform flex-shrink-0 ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                            />
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded && hasDetails && (
+                        <div className="px-3 pb-3 border-t border-border/50 space-y-2 bg-card/50">
+                          {test.error_message && (
+                            <div className="p-2 bg-red-500/10 border border-red-500/30 rounded">
+                              <p className="text-red-500 font-mono text-xs whitespace-pre-wrap break-words">
+                                {test.error_message}
+                              </p>
+                            </div>
+                          )}
+                          {test.std_out && (
+                            <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded">
+                              <p className="text-blue-500 font-mono text-xs whitespace-pre-wrap break-words">
+                                {test.std_out}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -261,6 +294,7 @@ function RobotReportItem({ report, onSelect }: { report: any; onSelect: (id: str
   const [isGenerating, setIsGenerating] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [copyNotification, setCopyNotification] = useState(false)
+  const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set())
 
   const passRate = report.total ? Math.round((report.passed / report.total) * 100) : 0
   const passed = report.passed || 0
@@ -295,6 +329,16 @@ function RobotReportItem({ report, onSelect }: { report: any; onSelect: (id: str
       setCopyNotification(true)
       setTimeout(() => setCopyNotification(false), 2000)
     }
+  }
+
+  const toggleTestExpanded = (idx: number) => {
+    const newExpanded = new Set(expandedTests)
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx)
+    } else {
+      newExpanded.add(idx)
+    }
+    setExpandedTests(newExpanded)
   }
 
   const getStatusIcon = (failed: number, total: number, skipped: number) => {
@@ -369,53 +413,75 @@ function RobotReportItem({ report, onSelect }: { report: any; onSelect: (id: str
           {report.tests && report.tests.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-sm font-semibold text-foreground mb-3">Test Results ({report.tests.length})</p>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {report.tests.map((test: any, idx: number) => (
-                  <div key={idx} className="text-xs p-3 bg-card rounded border border-border/50">
-                    <div className="flex items-start gap-2">
-                      {test.status === 'passed' ? (
-                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="flex-1">
-                        <div>
-                          <p className="font-medium text-foreground">{test.name}</p>
-                          <span className="font-medium text-muted-foreground">{test.file_path}</span>
+              <div className="space-y-2">
+                {report.tests.map((test: any, idx: number) => {
+                  const isExpanded = expandedTests.has(idx)
+                  const hasDetails = test.error || test.info || test.warn || test.debug
+
+                  return (
+                    <div key={idx} className="text-xs bg-card rounded border border-border/50 overflow-hidden">
+                      <button
+                        onClick={() => toggleTestExpanded(idx)}
+                        className="w-full flex items-start gap-2 p-3 hover:bg-secondary/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {test.status === 'PASS' ? (
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{test.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{test.file_path}</p>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">Duration: {test.duration}s</p>
-                        {test.error && (
-                          <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded">
-                            <p className="text-red-500 font-mono text-xs whitespace-pre-wrap break-words">
-                              {test.error}
-                            </p>
-                          </div>
-                        )}
-                        {test.info && (
-                          <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded">
-                            <p className="text-blue-500 font-mono text-xs whitespace-pre-wrap break-words">
-                              {test.info}
-                            </p>
-                          </div>
-                        )}
-                        {test.warn && (
-                          <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded">
-                            <p className="text-yellow-500 font-mono text-xs whitespace-pre-wrap break-words">
-                              {test.warn}
-                            </p>
-                          </div>
-                        )}
-                        {test.debug && (
-                          <div className="mt-2 p-2 bg-gray-500/10 border border-gray-500/30 rounded">
-                            <p className="text-gray-500 font-mono text-xs whitespace-pre-wrap break-words">
-                              {test.debug}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground">{test.duration}s</span>
+                          {hasDetails && (
+                            <ChevronDown
+                              className={`w-4 h-4 text-muted-foreground transition-transform flex-shrink-0 ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                            />
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded && hasDetails && (
+                        <div className="px-3 pb-3 border-t border-border/50 space-y-2 bg-card/50">
+                          {test.error && (
+                            <div className="p-2 bg-red-500/10 border border-red-500/30 rounded">
+                              <p className="text-red-500 font-mono text-xs whitespace-pre-wrap break-words">
+                                {test.error}
+                              </p>
+                            </div>
+                          )}
+                          {test.info && (
+                            <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded">
+                              <p className="text-blue-500 font-mono text-xs whitespace-pre-wrap break-words">
+                                {test.info}
+                              </p>
+                            </div>
+                          )}
+                          {test.warn && (
+                            <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                              <p className="text-yellow-500 font-mono text-xs whitespace-pre-wrap break-words">
+                                {test.warn}
+                              </p>
+                            </div>
+                          )}
+                          {test.debug && (
+                            <div className="p-2 bg-gray-500/10 border border-gray-500/30 rounded">
+                              <p className="text-gray-500 font-mono text-xs whitespace-pre-wrap break-words">
+                                {test.debug}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
