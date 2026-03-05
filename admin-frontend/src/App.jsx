@@ -70,9 +70,6 @@ export default function App() {
         {view === "users" && (
           <UsersPage
             users={users}
-            projects={projects}
-            projectUsers={projectUsers}
-            loadProjectUsers={loadUsers}
             removeUser={removeUser}
             showToast={showToast}
           />

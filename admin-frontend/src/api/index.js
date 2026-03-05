@@ -10,9 +10,8 @@ export const authApi = {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.detail || r.statusText);
-    // Block non-admins on the frontend as extra safety
     if (data.role && data.role !== "admin") throw new Error("Admin access only.");
-    return data; // { access_token, token_type }
+    return data;
   },
 };
 
@@ -33,5 +32,7 @@ export const releasesApi = {
 };
 
 export const usersApi = {
-  getAll: () => api.get("/users"),
+  getAll:     ()        => api.get("/users"),
+  getRuns:    (user_id) => api.get(`/users/${user_id}/runs`),
+  getProjects:(user_id) => api.get(`/users/${user_id}/projects`),
 };

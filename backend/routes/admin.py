@@ -8,6 +8,8 @@ from db.models.project import Project
 from db.models.release import Release
 from db.models.project_user import ProjectUser
 from db.models.jmeter_run import JmeterRun
+from db.models.pytest_run import PytestRun
+from db.models.robot_run import RobotRun
 from pydantic import BaseModel, Field
 
 def require_admin(
@@ -280,6 +282,28 @@ async def get_users(
         for user in users
     ]
 
+@router.get("/users/{user_id}/projects")
+async def get_project_users(
+    request: Request,
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    projects = (
+        db.query(Project)
+        .join(ProjectUser, ProjectUser.project_id == Project.id)
+        .filter(ProjectUser.user_id == user_id)
+    ).all()
+
+    return [
+        {
+            "id": project.id,
+            "project_key": project.project_key,
+            "name": project.name
+        }
+        for project in projects
+    ]
+
 @router.get("/projects/{project_key}/users")
 async def get_project_users(
     request: Request,
@@ -307,3 +331,90 @@ async def get_project_users(
         } 
         for user in results
     ]
+
+@router.get("/users/{user_id}/runs")
+async def get_user_runs(
+    request: Request,
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    jmeter_runs = (
+        db.query(JmeterRun)
+        .filter(JmeterRun.started_by_id == user_id)
+        .filter(JmeterRun.status != "STARTED")
+    ).all()
+    pytest_runs = (
+        db.query(PytestRun)
+        .filter(PytestRun.started_by_id == user_id)
+        .filter(PytestRun.status != "STARTED")
+    ).all()
+    robot_runs = (
+        db.query(RobotRun)
+        .filter(RobotRun.started_by_id == user_id)
+        .filter(RobotRun.status != "STARTED")
+    ).all()
+
+    return {
+        "jmeter_runs": [
+            {
+                "run_id": run.id,
+                "run_name": run.run_name,
+                "status": run.status,
+                "started_at": run.started_at,
+                "started_by": run.started_by.username,
+                "release": run.release.name if run.release else None,
+                "ended_at": run.ended_at,
+                "script_name": run.script_name,
+                "run_status": run.run_status,
+                "duration": run.duration,
+                "v_users": run.v_users,
+                "avg_response_time": run.avg_response_time,
+                "error_rate": run.error_rate,
+                "throughput": run.throughput,
+                "project_key": run.release.project.project_key,
+                "test_type": "jmeter",
+                "release_id": run.release.id if run.release else None,
+            }
+            for run in jmeter_runs
+        ],
+        "pytest_runs": [
+            {
+                "run_id": run.id,
+                "run_name": run.run_name,
+                "status": run.status,
+                "started_at": run.started_at,
+                "started_by": run.started_by.username if hasattr(run, 'started_by') else None,
+                "release": run.release.name if hasattr(run, 'release') and run.release else None,
+                "project_key": run.release.project.project_key,
+                "ended_at": run.ended_at,
+                "total": run.total,
+                "passed": run.passed,
+                "failed": run.failed,
+                "skipped": run.skipped,
+                "duration": run.duration,
+                "test_type": "pytest",
+                "release_id": run.release.id if hasattr(run, 'release') and run.release else None,
+            }
+            for run in pytest_runs
+        ],
+        "robot_runs": [
+            {
+                "run_id": run.id,
+                "run_name": run.run_name,
+                "status": run.status,
+                "started_at": run.started_at,
+                "started_by": run.started_by.username if hasattr(run, 'started_by') else None,
+                "release": run.release.name if hasattr(run, 'release') and run.release else None,
+                "project_key": run.release.project.project_key,
+                "ended_at": run.ended_at,
+                "total": run.total,
+                "passed": run.passed,
+                "failed": run.failed,
+                "skipped": run.skipped,
+                "duration": run.duration,
+                "test_type": "robot",
+                "release_id": run.release.id if hasattr(run, 'release') and run.release else None,
+            } for run in robot_runs
+        ]
+    }
