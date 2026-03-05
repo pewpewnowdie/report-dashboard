@@ -26,3 +26,6 @@ class Release(Base):
     )
 
     project = relationship("Project", back_populates="releases")
+    jmeter_runs = relationship("JmeterRun", back_populates="release", cascade="all, delete-orphan")
+    pytest_runs = relationship("PytestRun", back_populates="release", cascade="all, delete-orphan")
+    robot_runs  = relationship("RobotRun",  back_populates="release", cascade="all, delete-orphan")

@@ -76,6 +76,22 @@ async def get_projects(
         for p in projects
     ]
 
+@router.delete("/projects/{project_key}")
+async def delete_project(
+    project_key: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    project = db.query(Project).filter_by(project_key=project_key).first()
+
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    db.delete(project)
+    db.commit()
+
+    return {"status": "deleted"}
+
 @router.post("/releases")
 async def create_release(
     req: ReleaseCreate,
@@ -86,7 +102,11 @@ async def create_release(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    existing = db.query(Release).filter_by(name=req.name).first()
+    existing = db.query(Release).join(Project).filter(
+        Release.name == req.name,
+        Project.id == project.id
+    ).first()
+
     if existing:
         raise HTTPException(status_code=400, detail="Duplicate release name in same project")
 
@@ -117,7 +137,7 @@ async def get_releases(
         .join(Project, Project.id == Release.project_id)
         .filter(
             Project.project_key == project
-        ).order_by(Release.created_at.desc()).all()
+        ).order_by(Release.created_at.asc()).all()
     )
 
     return [
@@ -128,6 +148,23 @@ async def get_releases(
         }
         for r in releases
     ]
+
+@router.delete("/releases/{release_id}")
+async def delete_release(
+    request: Request,
+    release_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    release = db.query(Release).filter_by(id=release_id).first()
+
+    if not release:
+        raise HTTPException(404, "Release not found")
+    
+    db.delete(release)
+    db.commit()
+
+    return {"status": "deleted"}
 
 @router.get("/releases/{release_id}")
 async def list_runs(

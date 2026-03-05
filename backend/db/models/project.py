@@ -30,5 +30,6 @@ class Project(Base):
         DateTime, default=datetime.utcnow
     )
 
-    releases = relationship("Release", back_populates="project")
+    releases = relationship("Release", back_populates="project", cascade="all, delete-orphan")
+    project_users = relationship("ProjectUser", cascade="all, delete-orphan")
 

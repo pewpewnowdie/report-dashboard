@@ -53,4 +53,4 @@ class RobotRun(Base):
     skipped: Mapped[int | None] = mapped_column(nullable=True)
     duration: Mapped[str] = mapped_column(String, nullable=False, default="0")
 
-    tests = relationship("RobotTest", back_populates="run")
+    tests = relationship("RobotTest", back_populates="run", cascade="all, delete-orphan")

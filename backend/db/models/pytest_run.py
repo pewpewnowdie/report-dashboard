@@ -54,4 +54,4 @@ class PytestRun(Base):
     skipped: Mapped[int | None] = mapped_column(nullable=True)
     duration: Mapped[str] = mapped_column(String, nullable=False, default="0")
 
-    tests = relationship("PytestTest", back_populates="run")
+    tests = relationship("PytestTest", back_populates="run", cascade="all, delete-orphan")

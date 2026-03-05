@@ -34,5 +34,13 @@ export function useReleases() {
     return r;
   }, []);
 
-  return { releases, loadForProject, loadForAll, createRelease };
+  const deleteRelease = useCallback(async (project_key, release_id) => {
+    await releasesApi.delete(release_id);
+    setReleases(prev => ({
+      ...prev,
+      [project_key]: (prev[project_key] || []).filter(r => r.id !== release_id),
+    }));
+  }, []);
+
+  return { releases, loadForProject, loadForAll, createRelease, deleteRelease };
 }

@@ -3,7 +3,7 @@ import CreateProjectModal from "../components/modals/CreateProjectModal";
 import CreateReleaseModal from "../components/modals/CreateReleaseModal";
 import AddUserModal from "../components/modals/AddUserModal";
 
-export default function ProjectsPage({ projects, projectUsers, releases, users, loadUsers, loadReleases, createProject, addUser, removeUser, createRelease, showToast }) {
+export default function ProjectsPage({ projects, projectUsers, releases, users, loadUsers, loadReleases, createProject, deleteProject, addUser, removeUser, createRelease, deleteRelease, showToast }) {
   const [selectedProject, setSelectedProject] = useState(null);
   const [modal, setModal]           = useState(null);
   const [search, setSearch]         = useState("");
@@ -42,6 +42,23 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
   const handleRemoveUser = async (username) => {
     try { await removeUser(selectedProject.project_key, username); showToast("User removed."); }
     catch (e) { showToast(e.message, true); }
+  };
+
+  const handleDeleteProject = async (project_key) => {
+    if (!window.confirm("Delete this project? This cannot be undone.")) return;
+    try {
+      await deleteProject(project_key);
+      setSelectedProject(null);
+      showToast("Project deleted.");
+    } catch (e) { showToast(e.message, true); }
+  };
+
+  const handleDeleteRelease = async (release_id) => {
+    if (!window.confirm("Delete this release? This cannot be undone.")) return;
+    try {
+      await deleteRelease(selectedProject.project_key, release_id);
+      showToast("Release deleted.");
+    } catch (e) { showToast(e.message, true); }
   };
 
   const allMembers  = selectedProject ? (projectUsers[selectedProject.project_key] || []) : [];
@@ -90,7 +107,10 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
                     <tr key={p.project_key}>
                       <td style={{ fontFamily: "monospace", color: "#6b7280" }}>{p.project_key}</td>
                       <td><button className="link" onClick={() => openProject(p)}>{p.name}</button></td>
-                      <td><button className="link" onClick={() => openProject(p)}>View</button></td>
+                      <td style={{ display: "flex", gap: 12 }}>
+                        <button className="link" onClick={() => openProject(p)}>View</button>
+                        <button className="link-red" onClick={() => handleDeleteProject(p.project_key)}>Delete</button>
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -110,6 +130,7 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setModal("addUser")} style={ghostBtnStyle}>+ Add User</button>
               <button onClick={() => setModal("createRelease")} style={btnStyle}>+ New Release</button>
+              <button onClick={() => handleDeleteProject(selectedProject.project_key)} style={dangerBtnStyle}>Delete Project</button>
             </div>
           </div>
 
@@ -156,14 +177,15 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
                 />
               </div>
               <table>
-                <thead><tr><th>Name</th><th>Created</th></tr></thead>
+                <thead><tr><th>Name</th><th>Created</th><th></th></tr></thead>
                 <tbody>
                   {filteredRels.length === 0
-                    ? <tr><td colSpan={2} style={empty}>{allRels.length === 0 ? "No releases yet." : "No results match your search."}</td></tr>
+                    ? <tr><td colSpan={3} style={empty}>{allRels.length === 0 ? "No releases yet." : "No results match your search."}</td></tr>
                     : filteredRels.map(r => (
                       <tr key={r.id}>
                         <td style={{ color: "#2563eb" }}>{r.name}</td>
                         <td style={{ color: "#6b7280" }}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}</td>
+                        <td><button className="link-red" onClick={() => handleDeleteRelease(r.id)}>Delete</button></td>
                       </tr>
                     ))}
                 </tbody>
@@ -181,6 +203,7 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
 }
 
 const btnStyle      = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
+const dangerBtnStyle = { background: "#fff", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
 const ghostBtnStyle = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
 const tableWrap     = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, overflow: "hidden" };
 const tableHeader   = { padding: "9px 12px", borderBottom: "1px solid #d1d5db", fontWeight: 600, background: "#f9fafb", fontSize: 14 };

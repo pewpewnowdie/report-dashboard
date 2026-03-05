@@ -38,7 +38,12 @@ export function useProjects(enabled = true) {
     }));
   }, []);
 
+  const deleteProject = useCallback(async (project_key) => {
+    await projectsApi.delete(project_key);
+    setProjects(prev => prev.filter(p => p.project_key !== project_key));
+  }, []);
+
   useEffect(() => { if (enabled) load(); }, [enabled, load]);
 
-  return { projects, projectUsers, loading, error, reload: load, loadUsers, createProject, addUser, removeUser };
+  return { projects, projectUsers, loading, error, reload: load, loadUsers, createProject, addUser, removeUser, deleteProject };
 }
