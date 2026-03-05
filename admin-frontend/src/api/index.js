@@ -19,16 +19,17 @@ export const authApi = {
 export const projectsApi = {
   getAll:     ()                        => api.get("/projects"),
   create:     (project_key, name)       => api.post("/projects", { project_key, name }),
-
+  delete:     (project_key)             => api.delete(`/projects/${project_key}`),
   getUsers:   (project_key)             => api.get(`/projects/${project_key}/users`),
   addUser:    (project_key, username)   => api.post("/projects/users",   { project_key, username }),
   removeUser: (project_key, username)   => api.delete("/projects/users", { project_key, username }),
 };
 
 export const releasesApi = {
-  getByProject: (project_key)           => api.get(`/releases?project=${project_key}`),
-  create:       (project_key, name)     => api.post("/releases", { project_key, name }),
-  getRuns:      (release_id)            => api.get(`/releases/${release_id}`),
+  getByProject: (project_key)       => api.get(`/releases?project=${project_key}`),
+  create:       (project_key, name) => api.post("/releases", { project_key, name }),
+  delete:       (release_id)        => api.delete(`/releases/${release_id}`),
+  getRuns:      (release_id)        => api.get(`/releases/${release_id}`),
 };
 
 export const usersApi = {
