@@ -16,10 +16,8 @@ export default function App() {
   const { isLoggedIn, login, logout, loading: authLoading, error: authError } = useAuth();
   const [view, setView] = useState("projects");
 
-  const { projects, projectUsers, loading: pLoading, error: pError, reload: reloadProjects, loadUsers, createProject, addUser, removeUser } = useProjects(isLoggedIn);
   const { projects, projectUsers, loading: pLoading, error: pError, reload: reloadProjects, loadUsers, createProject, addUser, removeUser, deleteProject } = useProjects(isLoggedIn);
   const { users, loading: uLoading, error: uError, reload: reloadUsers } = useUsers(isLoggedIn);
-  const { releases, loadForProject, loadForAll, createRelease } = useReleases();
   const { releases, loadForProject, loadForAll, createRelease, deleteRelease } = useReleases();
   const { toast, showToast } = useToast();
 
