@@ -77,69 +77,81 @@ function FrameworkCell({ utilization }) {
   );
 }
 
-function SprintBreakdown({ sprints }) {
-  if (!sprints || sprints.length === 0)
-    return <span style={{ color: "#9ca3af", fontSize: 12 }}>No sprint data</span>;
-
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {sprints.map((s, i) => {
-        const pct = s.test_case_count > 0
-          ? Math.round((s.executed_test_case_count / s.test_case_count) * 100)
-          : 0;
-        return (
-          <div key={i} title={`Sprint ${s.sprint_no}: ${s.executed_test_case_count}/${s.test_case_count} executed`}
-            style={{
-              background: "#f8fafc", border: "1px solid #e2e8f0",
-              borderRadius: 6, padding: "4px 8px", fontSize: 11,
-              display: "flex", flexDirection: "column", alignItems: "center", minWidth: 52,
-            }}>
-            <span style={{ color: "#64748b", fontWeight: 700 }}>S{s.sprint_no}</span>
-            <span style={{ color: "#1e293b", fontWeight: 600 }}>{pct}%</span>
-            <span style={{ color: "#94a3b8" }}>{s.executed_test_case_count}/{s.test_case_count}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function ExpandedRow({ project }) {
   const stats = project.test_stats || {};
   const util = stats.framework_utilization_rate || {};
 
   return (
     <tr>
-      <td colSpan={8} style={{ background: "#f8fafc", padding: "16px 24px", borderTop: "none" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {/* Sprint breakdown */}
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Sprint Execution Breakdown
-            </div>
-            <SprintBreakdown sprints={project.sprints} />
-          </div>
-
-          {/* Framework utilization bars */}
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Framework Utilization
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {Object.entries(FRAMEWORK_LABELS).map(([key, label]) => {
-                const val = parseFloat(util[key]) || 0;
-                return (
-                  <div key={key} style={{ display: "grid", gridTemplateColumns: "80px 1fr", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "#374151", fontWeight: 500 }}>{label}</span>
-                    <MiniBar value={val} color={FRAMEWORK_COLORS[key].bar} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      <td colSpan={8} style={{ background: "#f8fafc", padding: "16px 32px 20px", borderTop: "none" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Framework Utilization
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+          {Object.entries(FRAMEWORK_LABELS).map(([key, label]) => {
+            const val = parseFloat(util[key]) || 0;
+            const c = FRAMEWORK_COLORS[key];
+            return (
+              <div key={key} style={{
+                background: "#fff", border: "1px solid #e2e8f0",
+                borderRadius: 8, padding: "10px 14px",
+              }}>
+                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, marginBottom: 6 }}>{label}</div>
+                <MiniBar value={val} color={c.bar} />
+              </div>
+            );
+          })}
         </div>
       </td>
     </tr>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      minHeight: 420, gap: 20,
+    }}>
+      <style>{`
+        @keyframes rp-spin { to { transform: rotate(360deg); } }
+        @keyframes rp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes rp-bar { 0% { transform: scaleX(0); } 60% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
+      `}</style>
+
+      {/* Spinner */}
+      <div style={{
+        width: 52, height: 52, borderRadius: "50%",
+        border: "4px solid #e2e8f0",
+        borderTopColor: "#1e3a5f",
+        animation: "rp-spin 0.8s linear infinite",
+      }} />
+
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>
+          Fetching Execution Report
+        </div>
+        <div style={{ fontSize: 13, color: "#94a3b8", animation: "rp-pulse 1.8s ease-in-out infinite" }}>
+          Aggregating data across all projects…
+        </div>
+      </div>
+
+      {/* Animated skeleton bars */}
+      <div style={{ width: 340, display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+        {[100, 75, 88, 60].map((w, i) => (
+          <div key={i} style={{
+            height: 12, borderRadius: 6, background: "#e2e8f0", overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%", width: `${w}%`, background: "linear-gradient(90deg, #e2e8f0 25%, #c7d4e8 50%, #e2e8f0 75%)",
+              backgroundSize: "200% 100%",
+              animation: `rp-pulse ${1.2 + i * 0.2}s ease-in-out infinite`,
+              borderRadius: 6,
+            }} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -194,6 +206,8 @@ export default function ReportPage({ report, loading, error, reload }) {
     ? (filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.execution_percentage) || 0), 0) / totalProjects).toFixed(1)
     : "—";
   const totalTestCases = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
+
+  if (loading && report.length === 0) return <LoadingScreen />;
 
   return (
     <div>
@@ -250,7 +264,6 @@ export default function ReportPage({ report, loading, error, reload }) {
           onChange={e => setSearch(e.target.value)}
           style={{ maxWidth: 280 }}
         />
-        {loading && <span style={{ color: "#64748b", fontSize: 13 }}>Loading…</span>}
         {error && <span style={{ color: "#dc2626", fontSize: 13 }}>{error}</span>}
       </div>
 
