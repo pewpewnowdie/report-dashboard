@@ -6,11 +6,13 @@ import LoginPage from "./pages/LoginPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import UsersPage from "./pages/UsersPage";
 import ReleasesPage from "./pages/ReleasesPage";
+import ReportPage from "./pages/ReportPage";
 import { useAuth } from "./hooks/useAuth";
 import { useProjects } from "./hooks/useProjects";
 import { useUsers } from "./hooks/useUsers";
 import { useReleases } from "./hooks/useReleases";
 import { useToast } from "./hooks/useToast";
+import { useReport } from "./hooks/useReport";
 
 export default function App() {
   const { isLoggedIn, login, logout, loading: authLoading, error: authError } = useAuth();
@@ -19,6 +21,7 @@ export default function App() {
   const { projects, projectUsers, loading: pLoading, error: pError, reload: reloadProjects, loadUsers, createProject, addUser, removeUser, deleteProject } = useProjects(isLoggedIn);
   const { users, loading: uLoading, error: uError, reload: reloadUsers } = useUsers(isLoggedIn);
   const { releases, loadForProject, loadForAll, createRelease, deleteRelease } = useReleases();
+  const { report, loading: rLoading, error: rError, reload: reloadReport } = useReport(isLoggedIn);
   const { toast, showToast } = useToast();
 
   const loading = pLoading || uLoading;
@@ -80,6 +83,15 @@ export default function App() {
             projects={projects}
             releases={releases}
             loadForAll={loadForAll}
+          />
+        )}
+
+        {view === "report" && (
+          <ReportPage
+            report={report}
+            loading={rLoading}
+            error={rError}
+            reload={reloadReport}
           />
         )}
       </div>

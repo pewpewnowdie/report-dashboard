@@ -4,6 +4,7 @@ const TABS = [
   ["projects", "Projects"],
   ["users", "Users"],
   ["releases", "Releases"],
+  ["report", "Execution Report"],
 ];
 
 export default function Navbar({ view, onNavigate, loading, onLogout }) {
