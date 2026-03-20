@@ -36,3 +36,9 @@ export const usersApi = {
   getRuns:    (user_id) => api.get(`/users/${user_id}/runs`),
   getProjects:(user_id) => api.get(`/users/${user_id}/projects`),
 };
+
+export const projectSettingsApi = {
+  get:    (project_key)        => api.get(`/project_settings/${project_key}`),
+  create: (body)               => api.post("/project_settings", body),
+  update: (body)               => api.put("/project_settings", body),
+};

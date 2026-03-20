@@ -13,15 +13,17 @@ import { useUsers } from "./hooks/useUsers";
 import { useReleases } from "./hooks/useReleases";
 import { useToast } from "./hooks/useToast";
 import { useReport } from "./hooks/useReport";
+import { useProjectSettings } from "./hooks/useProjectSettings";
 
 export default function App() {
   const { isLoggedIn, login, logout, loading: authLoading, error: authError } = useAuth();
-  const [view, setView] = useState("projects");
+  const [view, setView] = useState("report");
 
   const { projects, projectUsers, loading: pLoading, error: pError, reload: reloadProjects, loadUsers, createProject, addUser, removeUser, deleteProject } = useProjects(isLoggedIn);
   const { users, loading: uLoading, error: uError, reload: reloadUsers } = useUsers(isLoggedIn);
   const { releases, loadForProject, loadForAll, createRelease, deleteRelease } = useReleases();
   const { report, loading: rLoading, error: rError, reload: reloadReport } = useReport(isLoggedIn);
+  const { settings: projectSettings, loading: psLoading, load: loadProjectSettings, save: saveProjectSettings } = useProjectSettings();
   const { toast, showToast } = useToast();
 
   const loading = pLoading || uLoading;
@@ -66,6 +68,10 @@ export default function App() {
             removeUser={removeUser}
             createRelease={createRelease}
             deleteRelease={deleteRelease}
+            projectSettings={projectSettings}
+            loadProjectSettings={loadProjectSettings}
+            saveProjectSettings={saveProjectSettings}
+            psLoading={psLoading}
             showToast={showToast}
           />
         )}

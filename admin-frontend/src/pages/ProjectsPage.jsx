@@ -2,8 +2,107 @@ import React, { useState, useEffect } from "react";
 import CreateProjectModal from "../components/modals/CreateProjectModal";
 import CreateReleaseModal from "../components/modals/CreateReleaseModal";
 import AddUserModal from "../components/modals/AddUserModal";
+import { ModalShell, Field, ModalActions } from "../components/modals/ModalPrimitives";
 
-export default function ProjectsPage({ projects, projectUsers, releases, users, loadUsers, loadReleases, createProject, deleteProject, addUser, removeUser, createRelease, deleteRelease, showToast }) {
+function ProjectSettingsPanel({ projectKey, settings, loading, onSave }) {
+  const existing = settings ?? null;
+  const [releaseName, setReleaseName] = useState("");
+  const [sprints, setSprints]         = useState("");
+  const [saving, setSaving]           = useState(false);
+  const [dirty, setDirty]             = useState(false);
+
+  // Populate fields when settings load
+  useEffect(() => {
+    if (existing) {
+      setReleaseName(existing.active_release_name ?? "");
+      setSprints(existing.completed_sprints != null ? String(existing.completed_sprints) : "");
+      setDirty(false);
+    }
+  }, [existing]);
+
+  const handleChange = (setter) => (e) => {
+    setter(e.target.value);
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    const sprintVal = sprints === "" ? null : parseInt(sprints, 10);
+    if (sprints !== "" && isNaN(sprintVal)) return;
+    setSaving(true);
+    try {
+      await onSave(projectKey, releaseName.trim() || null, sprintVal, existing !== null);
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={tableWrap}>
+        <div style={tableHeader}>Project Settings</div>
+        <div style={{ padding: "20px 16px", color: "#9ca3af", fontSize: 13 }}>Loading settings…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={tableWrap}>
+      <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>Project Settings</span>
+        {existing === null && (
+          <span style={{ fontSize: 11, fontWeight: 400, color: "#f59e0b", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 99, padding: "2px 8px" }}>
+            Not configured
+          </span>
+        )}
+      </div>
+      <div style={{ padding: "16px" }}>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 5, color: "#374151" }}>
+            Active Release Name
+          </label>
+          <input
+            value={releaseName}
+            onChange={handleChange(setReleaseName)}
+            placeholder="e.g. Release 3.0"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 5, color: "#374151" }}>
+            Completed Sprints
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={sprints}
+            onChange={handleChange(setSprints)}
+            placeholder="e.g. 4"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            style={{
+              background: dirty ? "#2563eb" : "#e5e7eb",
+              color: dirty ? "#fff" : "#9ca3af",
+              border: "none", borderRadius: 4,
+              padding: "7px 16px", cursor: dirty ? "pointer" : "default",
+              fontSize: 13, fontWeight: 600, fontFamily: "Arial, sans-serif",
+              transition: "background 0.15s",
+            }}
+          >
+            {saving ? "Saving…" : existing === null ? "Create Settings" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ProjectsPage({ projects, projectUsers, releases, users, loadUsers, loadReleases, createProject, deleteProject, addUser, removeUser, createRelease, deleteRelease, projectSettings, loadProjectSettings, saveProjectSettings, psLoading, showToast }) {
   const [selectedProject, setSelectedProject] = useState(null);
   const [modal, setModal]           = useState(null);
   const [search, setSearch]         = useState("");
@@ -14,10 +113,10 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
     if (selectedProject) {
       loadUsers(selectedProject.project_key);
       loadReleases(selectedProject.project_key);
+      loadProjectSettings(selectedProject.project_key);
     }
   }, [selectedProject]);
 
-  // Reset detail searches when switching project
   const openProject = (p) => {
     setSelectedProject(p);
     setMemberSearch("");
@@ -58,6 +157,13 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
     try {
       await deleteRelease(selectedProject.project_key, release_id);
       showToast("Release deleted.");
+    } catch (e) { showToast(e.message, true); }
+  };
+
+  const handleSaveSettings = async (project_key, active_release_name, completed_sprints, exists) => {
+    try {
+      await saveProjectSettings(project_key, active_release_name, completed_sprints, exists);
+      showToast("Settings saved.");
     } catch (e) { showToast(e.message, true); }
   };
 
@@ -134,7 +240,7 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
             {/* Members */}
             <div style={tableWrap}>
               <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -192,6 +298,14 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
               </table>
             </div>
           </div>
+
+          {/* Project Settings — full width below */}
+          <ProjectSettingsPanel
+            projectKey={selectedProject.project_key}
+            settings={projectSettings[selectedProject.project_key]}
+            loading={!!psLoading[selectedProject.project_key]}
+            onSave={handleSaveSettings}
+          />
         </>
       )}
 
@@ -202,9 +316,9 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
   );
 }
 
-const btnStyle      = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
+const btnStyle       = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
 const dangerBtnStyle = { background: "#fff", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
-const ghostBtnStyle = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
-const tableWrap     = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, overflow: "hidden" };
-const tableHeader   = { padding: "9px 12px", borderBottom: "1px solid #d1d5db", fontWeight: 600, background: "#f9fafb", fontSize: 14 };
-const empty         = { color: "#9ca3af" };
+const ghostBtnStyle  = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
+const tableWrap      = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, overflow: "hidden" };
+const tableHeader    = { padding: "9px 12px", borderBottom: "1px solid #d1d5db", fontWeight: 600, background: "#f9fafb", fontSize: 14 };
+const empty          = { color: "#9ca3af" };
