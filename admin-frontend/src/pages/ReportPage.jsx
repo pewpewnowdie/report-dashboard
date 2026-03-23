@@ -119,12 +119,18 @@ function FrameworkPieChart({ data }) {
   const canvasRef = useRef(null);
   const chartRef  = useRef(null);
 
-  useEffect(() => {
-    const entries = Object.entries(FRAMEWORK_LABELS)
-      .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
-      .filter(e => e.val > 0);
+  const entries = Object.entries(FRAMEWORK_LABELS)
+    .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
+    .filter(e => e.val > 0)
+    .sort((a, b) => b.val - a.val);
 
+  useEffect(() => {
     if (entries.length === 0) return;
+
+    // Normalize to 100 for rendering so slices always fill the chart,
+    // but keep real values for labels/tooltips
+    const total = entries.reduce((s, e) => s + e.val, 0);
+    const normalized = entries.map(e => total > 0 ? (e.val / total) * 100 : 0);
 
     const init = () => {
       if (!canvasRef.current) return;
@@ -134,7 +140,7 @@ function FrameworkPieChart({ data }) {
         data: {
           labels: entries.map(e => e.label),
           datasets: [{
-            data: entries.map(e => parseFloat(e.val.toFixed(1))),
+            data: normalized,
             backgroundColor: entries.map(e => FW_PIE_COLORS[e.key]),
             borderWidth: 2,
             borderColor: "#fff",
@@ -149,7 +155,8 @@ function FrameworkPieChart({ data }) {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%`,
+                // Show the real avg % in tooltip, not the normalized value
+                label: ctx => ` ${ctx.label}: ${entries[ctx.dataIndex].val.toFixed(1)}%`,
               },
             },
           },
@@ -168,11 +175,6 @@ function FrameworkPieChart({ data }) {
 
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
   }, [data]);
-
-  const entries = Object.entries(FRAMEWORK_LABELS)
-    .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
-    .filter(e => e.val > 0)
-    .sort((a, b) => b.val - a.val);
 
   return (
     <div style={{
