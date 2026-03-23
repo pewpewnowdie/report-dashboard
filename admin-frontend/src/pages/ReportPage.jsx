@@ -83,7 +83,7 @@ function ExpandedRow({ project }) {
 
   return (
     <tr>
-      <td colSpan={8} style={{ background: "#f8fafc", padding: "16px 32px 20px", borderTop: "none" }}>
+      <td colSpan={9} style={{ background: "#f8fafc", padding: "16px 32px 20px", borderTop: "none" }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
           Framework Utilization
         </div>
@@ -207,6 +207,21 @@ export default function ReportPage({ report, loading, error, reload }) {
     : "—";
   const totalTestCases = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
 
+  // Aggregate framework utilization — simple average across projects that have data
+  const fwAggregate = (() => {
+    const projectsWithUtil = filtered.filter(p => p.test_stats?.framework_utilization_rate);
+    if (projectsWithUtil.length === 0) return null;
+    const sums = {};
+    Object.keys(FRAMEWORK_LABELS).forEach(k => { sums[k] = 0; });
+    projectsWithUtil.forEach(p => {
+      const u = p.test_stats.framework_utilization_rate;
+      Object.keys(FRAMEWORK_LABELS).forEach(k => { sums[k] += parseFloat(u[k]) || 0; });
+    });
+    const result = {};
+    Object.keys(FRAMEWORK_LABELS).forEach(k => { result[k] = sums[k] / projectsWithUtil.length; });
+    return result;
+  })();
+
   if (loading && report.length === 0) return <LoadingScreen />;
 
   return (
@@ -256,6 +271,32 @@ export default function ReportPage({ report, loading, error, reload }) {
         ))}
       </div>
 
+      {/* Aggregate Framework Utilization */}
+      {fwAggregate && (
+        <div style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "16px 20px", marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
+            Aggregate Framework Utilization
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+            {Object.entries(FRAMEWORK_LABELS).map(([key, label]) => {
+              const val = fwAggregate[key] || 0;
+              const c = FRAMEWORK_COLORS[key];
+              return (
+                <div key={key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: c.text, background: c.bg, borderRadius: 99, padding: "2px 8px" }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{val.toFixed(1)}%</span>
+                  </div>
+                  <div style={{ background: "#e5e7eb", borderRadius: 4, height: 8, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.min(val, 100)}%`, background: c.bar, height: "100%", borderRadius: 4, transition: "width 0.4s" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
         <input
@@ -287,13 +328,14 @@ export default function ReportPage({ report, loading, error, reload }) {
                 Execution % <SortIcon col="execution_percentage" />
               </th>
               <th style={{ padding: "12px 16px" }}>Frameworks</th>
+              <th style={{ padding: "12px 16px" }}>Sprints</th>
               <th style={{ padding: "12px 16px" }}>Status</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
+                <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
                   {search ? "No projects match your search." : "No report data available."}
                 </td>
               </tr>
@@ -347,6 +389,13 @@ export default function ReportPage({ report, loading, error, reload }) {
                     {/* Frameworks */}
                     <td style={{ padding: "10px 16px" }}>
                       <FrameworkCell utilization={stats.framework_utilization_rate} />
+                    </td>
+
+                    {/* Sprint Count */}
+                    <td style={{ padding: "10px 16px", textAlign: "center" }}>
+                      <span style={{ fontWeight: 600, color: "#1e293b" }}>
+                        {Array.isArray(project.sprints) ? project.sprints.length : "—"}
+                      </span>
                     </td>
 
                     {/* Status */}
