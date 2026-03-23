@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 
 const FRAMEWORK_LABELS = {
   pyp: "Playwright",
@@ -9,28 +9,29 @@ const FRAMEWORK_LABELS = {
 };
 
 const FRAMEWORK_COLORS = {
-  pyp: { bg: "#dbeafe", text: "#1d4ed8", bar: "#3b82f6" },
-  pys: { bg: "#dcfce7", text: "#15803d", bar: "#22c55e" },
-  rob: { bg: "#fef9c3", text: "#a16207", bar: "#eab308" },
-  saf: { bg: "#f3e8ff", text: "#7e22ce", bar: "#a855f7" },
-  oth: { bg: "#f1f5f9", text: "#475569", bar: "#94a3b8" },
+  pyp: { bg: "#dbeafe", text: "#1d4ed8", bar: "#3b82f6", pie: "#3b82f6" },
+  pys: { bg: "#dcfce7", text: "#15803d", bar: "#22c55e", pie: "#22c55e" },
+  rob: { bg: "#fef9c3", text: "#a16207", bar: "#eab308", pie: "#eab308" },
+  saf: { bg: "#f3e8ff", text: "#7e22ce", bar: "#a855f7", pie: "#a855f7" },
+  oth: { bg: "#f1f5f9", text: "#475569", bar: "#94a3b8", pie: "#94a3b8" },
 };
+
+// ── Small components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
   const s = (status || "").toLowerCase();
-  const styles = {
-    "not started": { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8",  label: "Not Started" },
-    "completed":   { bg: "#dcfce7", color: "#15803d", dot: "#22c55e",  label: "Completed" },
-    "in progress": { bg: "#dbeafe", color: "#1d4ed8", dot: "#3b82f6",  label: "In Progress" },
-    "at risk":     { bg: "#fee2e2", color: "#b91c1c", dot: "#ef4444",  label: "At Risk" },
+  const map = {
+    "not started": { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8", label: "Not Started" },
+    "completed":   { bg: "#dcfce7", color: "#15803d", dot: "#22c55e", label: "Completed" },
+    "in progress": { bg: "#dbeafe", color: "#1d4ed8", dot: "#3b82f6", label: "In Progress" },
+    "at risk":     { bg: "#fee2e2", color: "#b91c1c", dot: "#ef4444", label: "At Risk" },
   };
-  const cfg = styles[s] || { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8", label: status || "—" };
+  const cfg = map[s] || { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8", label: status || "—" };
   return (
     <span style={{
-      background: cfg.bg, color: cfg.color,
-      borderRadius: 99, padding: "3px 10px 3px 8px",
-      fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
-      display: "inline-flex", alignItems: "center", gap: 5,
+      background: cfg.bg, color: cfg.color, borderRadius: 99,
+      padding: "3px 10px 3px 8px", fontSize: 12, fontWeight: 600,
+      whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5,
     }}>
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
       {cfg.label}
@@ -56,9 +57,7 @@ function FrameworkCell({ utilization }) {
     .map(([key, label]) => ({ key, label, val: parseFloat(utilization[key]) || 0 }))
     .filter(e => e.val > 0)
     .sort((a, b) => b.val - a.val);
-
   if (entries.length === 0) return <span style={{ color: "#9ca3af" }}>—</span>;
-
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
       {entries.map(({ key, label, val }) => {
@@ -77,10 +76,10 @@ function FrameworkCell({ utilization }) {
   );
 }
 
-function ExpandedRow({ project }) {
-  const stats = project.test_stats || {};
-  const util = stats.framework_utilization_rate || {};
+// ── Expanded row (per-project framework bars) ─────────────────────────────────
 
+function ExpandedRow({ project }) {
+  const util = (project.test_stats || {}).framework_utilization_rate || {};
   return (
     <tr>
       <td colSpan={9} style={{ background: "#f8fafc", padding: "16px 32px 20px", borderTop: "none" }}>
@@ -92,10 +91,7 @@ function ExpandedRow({ project }) {
             const val = parseFloat(util[key]) || 0;
             const c = FRAMEWORK_COLORS[key];
             return (
-              <div key={key} style={{
-                background: "#fff", border: "1px solid #e2e8f0",
-                borderRadius: 8, padding: "10px 14px",
-              }}>
+              <div key={key} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px" }}>
                 <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, marginBottom: 6 }}>{label}</div>
                 <MiniBar value={val} color={c.bar} />
               </div>
@@ -107,74 +103,38 @@ function ExpandedRow({ project }) {
   );
 }
 
-const FW_PIE_COLORS = {
-  pyp: "#3b82f6",
-  pys: "#22c55e",
-  rob: "#eab308",
-  saf: "#a855f7",
-  oth: "#94a3b8",
-};
+// ── Aggregate pie chart (pure SVG) ────────────────────────────────────────────
 
 function FrameworkPieChart({ data }) {
-  const canvasRef = useRef(null);
-  const chartRef  = useRef(null);
-
   const entries = Object.entries(FRAMEWORK_LABELS)
     .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
     .filter(e => e.val > 0)
     .sort((a, b) => b.val - a.val);
 
-  useEffect(() => {
-    if (entries.length === 0) return;
+  if (entries.length === 0) return null;
 
-    // Normalize to 100 for rendering so slices always fill the chart,
-    // but keep real values for labels/tooltips
-    const total = entries.reduce((s, e) => s + e.val, 0);
-    const normalized = entries.map(e => total > 0 ? (e.val / total) * 100 : 0);
+  const total = entries.reduce((s, e) => s + e.val, 0);
+  const cx = 100, cy = 100, r = 80, innerR = 52;
 
-    const init = () => {
-      if (!canvasRef.current) return;
-      if (chartRef.current) chartRef.current.destroy();
-      chartRef.current = new window.Chart(canvasRef.current, {
-        type: "doughnut",
-        data: {
-          labels: entries.map(e => e.label),
-          datasets: [{
-            data: normalized,
-            backgroundColor: entries.map(e => FW_PIE_COLORS[e.key]),
-            borderWidth: 2,
-            borderColor: "#fff",
-            hoverOffset: 6,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: "62%",
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                // Show the real avg % in tooltip, not the normalized value
-                label: ctx => ` ${ctx.label}: ${entries[ctx.dataIndex].val.toFixed(1)}%`,
-              },
-            },
-          },
-        },
-      });
-    };
-
-    if (window.Chart) {
-      init();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js";
-      script.onload = init;
-      document.head.appendChild(script);
-    }
-
-    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [data]);
+  const slices = [];
+  let angle = -Math.PI / 2;
+  entries.forEach(({ key, val }) => {
+    const sweep = (val / total) * 2 * Math.PI;
+    const x1  = cx + r       * Math.cos(angle);
+    const y1  = cy + r       * Math.sin(angle);
+    const x2  = cx + r       * Math.cos(angle + sweep);
+    const y2  = cy + r       * Math.sin(angle + sweep);
+    const ix1 = cx + innerR  * Math.cos(angle);
+    const iy1 = cy + innerR  * Math.sin(angle);
+    const ix2 = cx + innerR  * Math.cos(angle + sweep);
+    const iy2 = cy + innerR  * Math.sin(angle + sweep);
+    const large = sweep > Math.PI ? 1 : 0;
+    slices.push({
+      key,
+      d: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`,
+    });
+    angle += sweep;
+  });
 
   return (
     <div style={{
@@ -187,62 +147,51 @@ function FrameworkPieChart({ data }) {
           Aggregate Framework Utilization
         </div>
         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 16 }}>Averaged across all projects</div>
-        {/* Legend */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {entries.map(({ key, label, val }) => (
             <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: FW_PIE_COLORS[key], flexShrink: 0 }} />
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: FRAMEWORK_COLORS[key].pie, flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: "#374151", minWidth: 80 }}>{label}</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{val.toFixed(1)}%</span>
             </div>
           ))}
         </div>
       </div>
-      <div style={{ position: "relative", width: 200, height: 200, flexShrink: 0 }}>
-        <canvas ref={canvasRef} />
-      </div>
+      <svg width="200" height="200" viewBox="0 0 200 200" style={{ flexShrink: 0 }}>
+        {slices.map(({ key, d }) => (
+          <path key={key} d={d} fill={FRAMEWORK_COLORS[key].pie} stroke="#fff" strokeWidth="2" />
+        ))}
+      </svg>
     </div>
   );
 }
 
+// ── Loading screen ────────────────────────────────────────────────────────────
+
 function LoadingScreen() {
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      minHeight: 420, gap: 20,
-    }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 420, gap: 20 }}>
       <style>{`
-        @keyframes rp-spin { to { transform: rotate(360deg); } }
+        @keyframes rp-spin  { to { transform: rotate(360deg); } }
         @keyframes rp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-        @keyframes rp-bar { 0% { transform: scaleX(0); } 60% { transform: scaleX(1); } 100% { transform: scaleX(1); } }
       `}</style>
-
-      {/* Spinner */}
       <div style={{
         width: 52, height: 52, borderRadius: "50%",
-        border: "4px solid #e2e8f0",
-        borderTopColor: "#1e3a5f",
+        border: "4px solid #e2e8f0", borderTopColor: "#1e3a5f",
         animation: "rp-spin 0.8s linear infinite",
       }} />
-
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>
-          Fetching Execution Report
-        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Fetching Execution Report</div>
         <div style={{ fontSize: 13, color: "#94a3b8", animation: "rp-pulse 1.8s ease-in-out infinite" }}>
           Aggregating data across all projects…
         </div>
       </div>
-
-      {/* Animated skeleton bars */}
       <div style={{ width: 340, display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
         {[100, 75, 88, 60].map((w, i) => (
-          <div key={i} style={{
-            height: 12, borderRadius: 6, background: "#e2e8f0", overflow: "hidden",
-          }}>
+          <div key={i} style={{ height: 12, borderRadius: 6, background: "#e2e8f0", overflow: "hidden" }}>
             <div style={{
-              height: "100%", width: `${w}%`, background: "linear-gradient(90deg, #e2e8f0 25%, #c7d4e8 50%, #e2e8f0 75%)",
-              backgroundSize: "200% 100%",
+              height: "100%", width: `${w}%`,
+              background: "linear-gradient(90deg, #e2e8f0 25%, #c7d4e8 50%, #e2e8f0 75%)",
               animation: `rp-pulse ${1.2 + i * 0.2}s ease-in-out infinite`,
               borderRadius: 6,
             }} />
@@ -253,14 +202,15 @@ function LoadingScreen() {
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function ReportPage({ report, loading, error, reload }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch]   = useState("");
   const [expanded, setExpanded] = useState({});
   const [sortKey, setSortKey] = useState("project_name");
   const [sortDir, setSortDir] = useState("asc");
 
-  const toggleExpand = (key) =>
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleExpand = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -269,79 +219,70 @@ export default function ReportPage({ report, loading, error, reload }) {
 
   const q = search.toLowerCase();
   const filtered = (report || [])
-    .filter(p =>
-      p.project_name?.toLowerCase().includes(q) ||
-      p.project_key?.toLowerCase().includes(q)
-    )
+    .filter(p => p.project_name?.toLowerCase().includes(q) || p.project_key?.toLowerCase().includes(q))
     .sort((a, b) => {
       let av, bv;
-      if (sortKey === "project_name") { av = a.project_name; bv = b.project_name; }
-      else if (sortKey === "total_test_cases") { av = a.test_stats?.total_test_cases || 0; bv = b.test_stats?.total_test_cases || 0; }
-      else if (sortKey === "automation_rate") { av = parseFloat(a.test_stats?.automation_rate) || 0; bv = parseFloat(b.test_stats?.automation_rate) || 0; }
+      if      (sortKey === "project_name")       { av = a.project_name; bv = b.project_name; }
+      else if (sortKey === "total_test_cases")   { av = a.test_stats?.total_test_cases || 0; bv = b.test_stats?.total_test_cases || 0; }
+      else if (sortKey === "automation_rate")    { av = parseFloat(a.test_stats?.automation_rate) || 0; bv = parseFloat(b.test_stats?.automation_rate) || 0; }
       else if (sortKey === "execution_percentage") { av = parseFloat(a.test_stats?.execution_percentage) || 0; bv = parseFloat(b.test_stats?.execution_percentage) || 0; }
       else { av = a[sortKey]; bv = b[sortKey]; }
       if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      if (av > bv) return sortDir === "asc" ?  1 : -1;
       return 0;
     });
 
-  const SortIcon = ({ col }) => {
-    if (sortKey !== col) return <span style={{ color: "#cbd5e1", marginLeft: 4 }}>↕</span>;
-    return <span style={{ color: "#2563eb", marginLeft: 4 }}>{sortDir === "asc" ? "↑" : "↓"}</span>;
-  };
+  const SortIcon = ({ col }) => (
+    sortKey === col
+      ? <span style={{ color: "#2563eb", marginLeft: 4 }}>{sortDir === "asc" ? "↑" : "↓"}</span>
+      : <span style={{ color: "#cbd5e1", marginLeft: 4 }}>↕</span>
+  );
 
   const thStyle = (col) => ({
     cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
     background: sortKey === col ? "#f0f7ff" : undefined,
   });
 
-  // Summary stats
-  const totalProjects = filtered.length;
-  const avgAutomation = totalProjects > 0
+  const totalProjects  = filtered.length;
+  const totalTestCases = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
+  const avgAutomation  = totalProjects > 0
     ? (filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.automation_rate) || 0), 0) / totalProjects).toFixed(1)
     : "—";
-  const avgExecution = totalProjects > 0
+  const avgExecution   = totalProjects > 0
     ? (filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.execution_percentage) || 0), 0) / totalProjects).toFixed(1)
     : "—";
-  const totalTestCases = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
 
-  // Aggregate framework utilization — simple average across projects that have data
   const fwAggregate = (() => {
-    const projectsWithUtil = filtered.filter(p => p.test_stats?.framework_utilization_rate);
-    if (projectsWithUtil.length === 0) return null;
+    const withUtil = filtered.filter(p => p.test_stats?.framework_utilization_rate);
+    if (withUtil.length === 0) return null;
     const sums = {};
     Object.keys(FRAMEWORK_LABELS).forEach(k => { sums[k] = 0; });
-    projectsWithUtil.forEach(p => {
+    withUtil.forEach(p => {
       const u = p.test_stats.framework_utilization_rate;
       Object.keys(FRAMEWORK_LABELS).forEach(k => { sums[k] += parseFloat(u[k]) || 0; });
     });
     const result = {};
-    Object.keys(FRAMEWORK_LABELS).forEach(k => { result[k] = sums[k] / projectsWithUtil.length; });
+    Object.keys(FRAMEWORK_LABELS).forEach(k => { result[k] = sums[k] / withUtil.length; });
     return result;
   })();
 
-  if (loading && report.length === 0) return <LoadingScreen />;
+  if (loading && (!report || report.length === 0)) return <LoadingScreen />;
 
   return (
     <div>
-      {/* Page header */}
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>
-            Project Execution Summary
-          </h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Project Execution Summary</h2>
           <p style={{ fontSize: 13, color: "#64748b" }}>
             Test execution metrics, automation rates, and framework utilization across all projects
           </p>
         </div>
-        <button
-          onClick={reload}
-          style={{
-            background: "#1e3a5f", color: "#fff", border: "none",
-            borderRadius: 6, padding: "8px 16px", cursor: "pointer",
-            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
-          }}
-        >
+        <button onClick={reload} style={{
+          background: "#1e3a5f", color: "#fff", border: "none",
+          borderRadius: 6, padding: "8px 16px", cursor: "pointer",
+          fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
+        }}>
           ↻ Refresh
         </button>
       </div>
@@ -349,30 +290,27 @@ export default function ReportPage({ report, loading, error, reload }) {
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
         {[
-          { label: "Total Projects", value: totalProjects, color: "#1e3a5f", bg: "#f0f7ff" },
-          { label: "Total Test Cases", value: totalTestCases.toLocaleString(), color: "#15803d", bg: "#f0fdf4" },
-          { label: "Avg. Automation Rate", value: `${avgAutomation}%`, color: "#7e22ce", bg: "#faf5ff" },
-          { label: "Avg. Execution", value: `${avgExecution}%`, color: "#b45309", bg: "#fffbeb" },
+          { label: "Total Projects",      value: totalProjects,                color: "#1e3a5f", bg: "#f0f7ff" },
+          { label: "Total Test Cases",    value: totalTestCases.toLocaleString(), color: "#15803d", bg: "#f0fdf4" },
+          { label: "Avg. Automation Rate", value: `${avgAutomation}%`,         color: "#7e22ce", bg: "#faf5ff" },
+          { label: "Avg. Execution",      value: `${avgExecution}%`,           color: "#b45309", bg: "#fffbeb" },
         ].map(card => (
           <div key={card.label} style={{
-            background: card.bg, border: `1px solid ${card.bg}`,
-            borderRadius: 10, padding: "16px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+            background: card.bg, borderRadius: 10, padding: "16px 20px",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: `1px solid ${card.bg}`,
           }}>
             <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
               {card.label}
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: card.color }}>
-              {card.value}
-            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: card.color }}>{card.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Aggregate Framework Utilization — Pie Chart */}
+      {/* Aggregate framework pie chart */}
       {fwAggregate && <FrameworkPieChart data={fwAggregate} />}
 
-      {/* Controls */}
+      {/* Search + error */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
         <input
           placeholder="Search projects…"
@@ -383,12 +321,12 @@ export default function ReportPage({ report, loading, error, reload }) {
         {error && <span style={{ color: "#dc2626", fontSize: 13 }}>{error}</span>}
       </div>
 
-      {/* Main table */}
+      {/* Table */}
       <div style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", border: "1px solid #e2e8f0" }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-              <th style={{ ...thStyle("project_name"), width: 30, padding: "12px 8px 12px 16px" }} />
+              <th style={{ width: 30, padding: "12px 8px 12px 16px" }} />
               <th onClick={() => toggleSort("project_name")} style={{ ...thStyle("project_name"), padding: "12px 16px" }}>
                 Project <SortIcon col="project_name" />
               </th>
@@ -415,13 +353,11 @@ export default function ReportPage({ report, loading, error, reload }) {
                 </td>
               </tr>
             )}
-
             {filtered.map((project) => {
-              const stats = project.test_stats || {};
-              const isOpen = !!expanded[project.project_key];
+              const stats   = project.test_stats || {};
+              const isOpen  = !!expanded[project.project_key];
               const autoRate = parseFloat(stats.automation_rate) || 0;
-              const execPct = parseFloat(stats.execution_percentage) || 0;
-
+              const execPct  = parseFloat(stats.execution_percentage) || 0;
               return (
                 <React.Fragment key={project.project_key}>
                   <tr
@@ -430,56 +366,37 @@ export default function ReportPage({ report, loading, error, reload }) {
                     onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                     onMouseLeave={e => e.currentTarget.style.background = isOpen ? "#f0f7ff" : ""}
                   >
-                    {/* Expand chevron */}
                     <td style={{ padding: "10px 8px 10px 16px", color: "#94a3b8", fontSize: 13, textAlign: "center", background: isOpen ? "#f0f7ff" : undefined }}>
                       {isOpen ? "▾" : "▸"}
                     </td>
-
-                    {/* Project */}
                     <td style={{ padding: "10px 16px", background: isOpen ? "#f0f7ff" : undefined }}>
                       <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{project.project_name}</div>
                       <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{project.project_key}</div>
                     </td>
-
-                    {/* Total TCs */}
                     <td style={{ padding: "10px 16px" }}>
                       <span style={{ fontWeight: 600, color: "#1e293b" }}>{(stats.total_test_cases || 0).toLocaleString()}</span>
                     </td>
-
-                    {/* Automated TCs */}
                     <td style={{ padding: "10px 16px" }}>
                       <span style={{ fontWeight: 600, color: "#2563eb" }}>{(stats.automated_test_cases || 0).toLocaleString()}</span>
                     </td>
-
-                    {/* Automation Rate */}
                     <td style={{ padding: "10px 16px", minWidth: 160 }}>
                       <MiniBar value={autoRate} color="#7c3aed" />
                     </td>
-
-                    {/* Execution % */}
                     <td style={{ padding: "10px 16px", minWidth: 160 }}>
                       <MiniBar value={execPct} color="#0891b2" />
                     </td>
-
-                    {/* Frameworks */}
                     <td style={{ padding: "10px 16px" }}>
                       <FrameworkCell utilization={stats.framework_utilization_rate} />
                     </td>
-
-                    {/* Sprint Count */}
                     <td style={{ padding: "10px 16px", textAlign: "center" }}>
                       <span style={{ fontWeight: 600, color: "#1e293b" }}>
                         {Array.isArray(project.sprints) ? project.sprints.length : "—"}
                       </span>
                     </td>
-
-                    {/* Status */}
                     <td style={{ padding: "10px 16px" }}>
                       <StatusBadge status={stats.status} />
                     </td>
                   </tr>
-
-                  {/* Expanded detail row */}
                   {isOpen && <ExpandedRow project={project} />}
                 </React.Fragment>
               );
@@ -490,7 +407,7 @@ export default function ReportPage({ report, loading, error, reload }) {
 
       {filtered.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "#94a3b8", textAlign: "right" }}>
-          Showing {filtered.length} of {report.length} projects
+          Showing {filtered.length} of {(report || []).length} projects
         </div>
       )}
     </div>
