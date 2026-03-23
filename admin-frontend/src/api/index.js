@@ -45,5 +45,6 @@ export const projectSettingsApi = {
 
 export const sprintsApi = {
   get:    (project_key, release)                             => api.get(`/sprints?project_key=${encodeURIComponent(project_key)}&release=${encodeURIComponent(release)}`),
+  create: (project_key, release_name, sprint_no)            => api.post("/create_sprint", { project_key, release_name, sprint_no }),
   update: (project_key, release, sprint_no, test_case_count) => api.put("/update_sprint", { project_key, release, sprint_no, test_case_count }),
 };

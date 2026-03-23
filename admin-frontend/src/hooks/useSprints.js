@@ -37,5 +37,16 @@ export function useSprints() {
     }));
   }, []);
 
-  return { sprints, loading, error, load, updateTestCaseCount, cacheKey };
+  const createSprint = useCallback(async (project_key, release_name, sprint_no) => {
+    await api.post("/create_sprint", { project_key, release_name, sprint_no });
+    // Optimistically add new sprint with test_case_count 0
+    const key = cacheKey(project_key, release_name);
+    setSprints(prev => ({
+      ...prev,
+      [key]: [...(prev[key] || []), { sprint_no, test_case_count: 0 }]
+        .sort((a, b) => a.sprint_no - b.sprint_no),
+    }));
+  }, []);
+
+  return { sprints, loading, error, load, updateTestCaseCount, createSprint, cacheKey };
 }

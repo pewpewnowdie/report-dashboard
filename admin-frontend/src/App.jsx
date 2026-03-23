@@ -25,7 +25,7 @@ export default function App() {
   const { releases, loadForProject, loadForAll, createRelease, deleteRelease } = useReleases();
   const { report, loading: rLoading, error: rError, reload: reloadReport } = useReport(isLoggedIn);
   const { settings: projectSettings, loading: psLoading, load: loadProjectSettings, save: saveProjectSettings } = useProjectSettings();
-  const { sprints, loading: spLoading, error: spError, load: loadSprints, updateTestCaseCount, cacheKey: sprintCacheKey } = useSprints();
+  const { sprints, loading: spLoading, error: spError, load: loadSprints, updateTestCaseCount, createSprint, cacheKey: sprintCacheKey } = useSprints();
   const { toast, showToast } = useToast();
 
   const loading = pLoading || uLoading;
@@ -79,6 +79,7 @@ export default function App() {
             spError={spError}
             loadSprints={loadSprints}
             updateTestCaseCount={updateTestCaseCount}
+            createSprint={createSprint}
             sprintCacheKey={sprintCacheKey}
             showToast={showToast}
           />
