@@ -15,7 +15,7 @@ export function useSprints() {
     setLoading(prev => ({ ...prev, [key]: true }));
     setError(prev => ({ ...prev, [key]: null }));
     try {
-      const data = await api.post("/sprints", { project_key, release });
+      const data = await api.get(`/sprints?project_key=${encodeURIComponent(project_key)}&release=${encodeURIComponent(release)}`);
       setSprints(prev => ({ ...prev, [key]: data }));
     } catch (e) {
       setError(prev => ({ ...prev, [key]: e.message }));

@@ -112,15 +112,19 @@ function ProjectSettingsPanel({ projectKey, settings, loading, releaseOptions, o
   const [dirty, setDirty]             = useState(false);
 
   useEffect(() => {
-    if (existing) {
+    // Reset fields when switching to a different project
+    setReleaseName("");
+    setSprints("");
+    setDirty(false);
+  }, [projectKey]);
+
+  // Populate once when settings first arrive (fields still blank)
+  useEffect(() => {
+    if (existing && releaseName === "" && sprints === "") {
       setReleaseName(existing.active_release_name ?? "");
       setSprints(existing.completed_sprints != null ? String(existing.completed_sprints) : "");
-    } else {
-      setReleaseName("");
-      setSprints("");
     }
-    setDirty(false);
-  }, [existing, projectKey]);
+  }, [existing]);
 
   const handleReleaseChange = (e) => {
     setReleaseName(e.target.value);
