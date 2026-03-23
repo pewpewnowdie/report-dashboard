@@ -1,488 +1,522 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import CreateProjectModal from "../components/modals/CreateProjectModal";
+import CreateReleaseModal from "../components/modals/CreateReleaseModal";
+import AddUserModal from "../components/modals/AddUserModal";
 
-const FRAMEWORK_LABELS = {
-  pyp: "Playwright",
-  pys: "Selenium",
-  rob: "Robot",
-  saf: "SAF",
-  oth: "Other",
-};
+// ── Sprint Table ─────────────────────────────────────────────────────────────
 
-const FRAMEWORK_COLORS = {
-  pyp: { bg: "#dbeafe", text: "#1d4ed8", bar: "#3b82f6", pie: "#3b82f6" },
-  pys: { bg: "#dcfce7", text: "#15803d", bar: "#22c55e", pie: "#22c55e" },
-  rob: { bg: "#fef9c3", text: "#a16207", bar: "#eab308", pie: "#eab308" },
-  saf: { bg: "#f3e8ff", text: "#7e22ce", bar: "#a855f7", pie: "#a855f7" },
-  oth: { bg: "#f1f5f9", text: "#475569", bar: "#94a3b8", pie: "#94a3b8" },
-};
+function SprintTable({ projectKey, release, sprints, loading, error, onUpdate, onCreate, showToast }) {
+  const [cells, setCells] = useState({});
+  const [adding, setAdding] = useState(false);
+  const [newSprintNo, setNewSprintNo] = useState("");
+  const [creating, setCreating] = useState(false);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!sprints) return;
+    setCells(
+      Object.fromEntries(
+        sprints.map(s => [s.sprint_no, { value: String(s.test_case_count ?? ""), saving: false, dirty: false }])
+      )
+    );
+  }, [sprints]);
 
-function StatusBadge({ status }) {
-  const s = (status || "").toLowerCase();
-  const map = {
-    "not started": { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8", label: "Not Started" },
-    "completed":   { bg: "#dcfce7", color: "#15803d", dot: "#22c55e", label: "Completed" },
-    "in progress": { bg: "#dbeafe", color: "#1d4ed8", dot: "#3b82f6", label: "In Progress" },
-    "at risk":     { bg: "#fee2e2", color: "#b91c1c", dot: "#ef4444", label: "At Risk" },
-  };
-  const cfg = map[s] || { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8", label: status || "—" };
-  return (
-    <span style={{
-      background: cfg.bg, color: cfg.color, borderRadius: 99,
-      padding: "3px 10px 3px 8px", fontSize: 12, fontWeight: 600,
-      whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5,
-    }}>
-      <span style={{ width: 7, height: 7, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
-      {cfg.label}
-    </span>
-  );
-}
-
-function MiniBar({ value, color }) {
-  const pct = Math.min(Math.max(parseFloat(value) || 0, 0), 100);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <div style={{ flex: 1, background: "#e5e7eb", borderRadius: 4, height: 6, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, background: color, height: "100%", borderRadius: 4, transition: "width 0.4s" }} />
-      </div>
-      <span style={{ fontSize: 12, color: "#374151", minWidth: 36, textAlign: "right" }}>{pct.toFixed(1)}%</span>
-    </div>
-  );
-}
-
-function FrameworkCell({ utilization }) {
-  if (!utilization) return <span style={{ color: "#9ca3af" }}>—</span>;
-  const entries = Object.entries(FRAMEWORK_LABELS)
-    .map(([key, label]) => ({ key, label, val: parseFloat(utilization[key]) || 0 }))
-    .filter(e => e.val > 0)
-    .sort((a, b) => b.val - a.val);
-  if (entries.length === 0) return <span style={{ color: "#9ca3af" }}>—</span>;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {entries.map(({ key, label, val }) => {
-        const c = FRAMEWORK_COLORS[key];
-        return (
-          <span key={key} style={{
-            background: c.bg, color: c.text,
-            borderRadius: 99, padding: "2px 8px",
-            fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
-          }}>
-            {label} {val.toFixed(1)}%
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── SVG Donut ─────────────────────────────────────────────────────────────────
-
-function buildDonutSlices(segments, cx, cy, r, innerR) {
-  const total = segments.reduce((s, e) => s + (isFinite(e.val) ? e.val : 0), 0);
-  if (total <= 0) return [];
-  const slices = [];
-  let angle = -Math.PI / 2;
-  segments.forEach(({ key, color, val }) => {
-    const safeVal = isFinite(val) ? val : 0;
-    if (safeVal <= 0) return;
-    const sweep = (safeVal / total) * 2 * Math.PI;
-    const x1  = cx + r      * Math.cos(angle);
-    const y1  = cy + r      * Math.sin(angle);
-    const x2  = cx + r      * Math.cos(angle + sweep);
-    const y2  = cy + r      * Math.sin(angle + sweep);
-    const ix1 = cx + innerR * Math.cos(angle);
-    const iy1 = cy + innerR * Math.sin(angle);
-    const ix2 = cx + innerR * Math.cos(angle + sweep);
-    const iy2 = cy + innerR * Math.sin(angle + sweep);
-    const large = sweep > Math.PI ? 1 : 0;
-    slices.push({
-      key,
-      color,
-      d: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`,
-    });
-    angle += sweep;
-  });
-  return slices;
-}
-
-// ── Pie card variants ─────────────────────────────────────────────────────────
-
-function FrameworkPie({ data }) {
-  const entries = Object.entries(FRAMEWORK_LABELS)
-    .map(([key, label]) => ({ key, label, val: isFinite(parseFloat(data[key])) ? parseFloat(data[key]) : 0, color: FRAMEWORK_COLORS[key].pie }))
-    .filter(e => e.val > 0)
-    .sort((a, b) => b.val - a.val);
-
-  if (entries.length === 0) return null;
-  const slices = buildDonutSlices(entries, 80, 80, 65, 42);
-
-  return (
-    <div style={pieCardStyle}>
-      <div style={pieTitleStyle}>Framework Utilization</div>
-      <div style={pieSubStyle}>Avg. across all projects</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
-        <svg width="160" height="160" viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
-          {slices.map(({ key, color, d }) => (
-            <path key={key} d={d} fill={color} stroke="#fff" strokeWidth="2" />
-          ))}
-        </svg>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {entries.map(({ key, label, val }) => (
-            <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: FRAMEWORK_COLORS[key].pie, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: "#374151", minWidth: 72 }}>{label}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b" }}>{val.toFixed(1)}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PercentPie({ title, subtitle, value, color, trackColor, centerLabel }) {
-  const pct = isFinite(parseFloat(value)) ? Math.min(Math.max(parseFloat(value), 0), 100) : 0;
-  const remainder = 100 - pct;
-  const segments = [
-    { key: "val",  val: pct,       color },
-    { key: "rest", val: remainder, color: trackColor },
-  ];
-  const slices = buildDonutSlices(segments, 80, 80, 65, 42);
-
-  return (
-    <div style={pieCardStyle}>
-      <div style={pieTitleStyle}>{title}</div>
-      <div style={pieSubStyle}>{subtitle}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
-        <div style={{ position: "relative", width: 160, height: 160, flexShrink: 0 }}>
-          <svg width="160" height="160" viewBox="0 0 160 160">
-            {slices.map(({ key, color: c, d }) => (
-              <path key={key} d={d} fill={c} stroke="#fff" strokeWidth="2" />
-            ))}
-            <text x="80" y="75" textAnchor="middle" style={{ fontSize: 22, fontWeight: 700, fill: "#1e293b" }}>
-              {pct.toFixed(1)}%
-            </text>
-            <text x="80" y="93" textAnchor="middle" style={{ fontSize: 11, fill: "#94a3b8" }}>
-              {centerLabel}
-            </text>
-          </svg>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "#374151" }}>{centerLabel}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", marginLeft: 4 }}>{pct.toFixed(1)}%</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: trackColor, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "#374151" }}>Remaining</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", marginLeft: 4 }}>{remainder.toFixed(1)}%</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const pieCardStyle = {
-  background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "16px 20px",
-};
-const pieTitleStyle = { fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 };
-const pieSubStyle   = { fontSize: 11, color: "#94a3b8" };
-
-// ── Expanded row ──────────────────────────────────────────────────────────────
-
-function ExpandedRow({ project }) {
-  const util = (project.test_stats || {}).framework_utilization_rate || {};
-  return (
-    <tr>
-      <td colSpan={9} style={{ background: "#f8fafc", padding: "16px 32px 20px", borderTop: "none" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          Framework Utilization
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-          {Object.entries(FRAMEWORK_LABELS).map(([key, label]) => {
-            const val = parseFloat(util[key]) || 0;
-            const c = FRAMEWORK_COLORS[key];
-            return (
-              <div key={key} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                <MiniBar value={val} color={c.bar} />
-              </div>
-            );
-          })}
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-// ── Loading screen ────────────────────────────────────────────────────────────
-
-function LoadingScreen() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 420, gap: 20 }}>
-      <style>{`
-        @keyframes rp-spin  { to { transform: rotate(360deg); } }
-        @keyframes rp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-      `}</style>
-      <div style={{
-        width: 52, height: 52, borderRadius: "50%",
-        border: "4px solid #e2e8f0", borderTopColor: "#1e3a5f",
-        animation: "rp-spin 0.8s linear infinite",
-      }} />
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Fetching Execution Report</div>
-        <div style={{ fontSize: 13, color: "#94a3b8", animation: "rp-pulse 1.8s ease-in-out infinite" }}>
-          Aggregating data across all projects…
-        </div>
-      </div>
-      <div style={{ width: 340, display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-        {[100, 75, 88, 60].map((w, i) => (
-          <div key={i} style={{ height: 12, borderRadius: 6, background: "#e2e8f0", overflow: "hidden" }}>
-            <div style={{
-              height: "100%", width: `${w}%`,
-              background: "linear-gradient(90deg, #e2e8f0 25%, #c7d4e8 50%, #e2e8f0 75%)",
-              animation: `rp-pulse ${1.2 + i * 0.2}s ease-in-out infinite`,
-              borderRadius: 6,
-            }} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-export default function ReportPage({ report, loading, error, reload }) {
-  const [search, setSearch]     = useState("");
-  const [expanded, setExpanded] = useState({});
-  const [sortKey, setSortKey]   = useState("project_name");
-  const [sortDir, setSortDir]   = useState("asc");
-
-  const toggleExpand = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-
-  const toggleSort = (key) => {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
+  const handleChange = (sprint_no, val) => {
+    setCells(prev => ({ ...prev, [sprint_no]: { ...prev[sprint_no], value: val, dirty: true } }));
   };
 
-  const q = search.toLowerCase();
-  const filtered = (Array.isArray(report) ? report : [])
-    .filter(p => p.project_name?.toLowerCase().includes(q) || p.project_key?.toLowerCase().includes(q))
-    .sort((a, b) => {
-      let av, bv;
-      if      (sortKey === "project_name")         { av = a.project_name; bv = b.project_name; }
-      else if (sortKey === "total_test_cases")     { av = a.test_stats?.total_test_cases || 0; bv = b.test_stats?.total_test_cases || 0; }
-      else if (sortKey === "automation_rate")      { av = parseFloat(a.test_stats?.automation_rate) || 0; bv = parseFloat(b.test_stats?.automation_rate) || 0; }
-      else if (sortKey === "execution_percentage") { av = parseFloat(a.test_stats?.execution_percentage) || 0; bv = parseFloat(b.test_stats?.execution_percentage) || 0; }
-      else { av = a[sortKey]; bv = b[sortKey]; }
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ?  1 : -1;
-      return 0;
-    });
+  const handleBlur = async (sprint_no) => {
+    const cell = cells[sprint_no];
+    if (!cell || !cell.dirty) return;
+    const parsed = parseInt(cell.value, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      showToast("Test case count must be a non-negative number.", true);
+      const original = (sprints || []).find(s => s.sprint_no === sprint_no);
+      setCells(prev => ({ ...prev, [sprint_no]: { value: String(original?.test_case_count ?? ""), saving: false, dirty: false } }));
+      return;
+    }
+    setCells(prev => ({ ...prev, [sprint_no]: { ...prev[sprint_no], saving: true } }));
+    try {
+      await onUpdate(projectKey, release, sprint_no, parsed);
+      setCells(prev => ({ ...prev, [sprint_no]: { value: String(parsed), saving: false, dirty: false } }));
+    } catch (e) {
+      showToast(e.message || "Failed to update sprint.", true);
+      setCells(prev => ({ ...prev, [sprint_no]: { ...prev[sprint_no], saving: false } }));
+    }
+  };
 
-  const SortIcon = ({ col }) => (
-    sortKey === col
-      ? <span style={{ color: "#2563eb", marginLeft: 4 }}>{sortDir === "asc" ? "↑" : "↓"}</span>
-      : <span style={{ color: "#cbd5e1", marginLeft: 4 }}>↕</span>
-  );
+  const handleKeyDown = (e, sprint_no) => {
+    if (e.key === "Enter") e.target.blur();
+    if (e.key === "Escape") {
+      const original = (sprints || []).find(s => s.sprint_no === sprint_no);
+      setCells(prev => ({ ...prev, [sprint_no]: { value: String(original?.test_case_count ?? ""), saving: false, dirty: false } }));
+      e.target.blur();
+    }
+  };
 
-  const thStyle = (col) => ({
-    cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
-    background: sortKey === col ? "#f0f7ff" : undefined,
-  });
+  const handleCreate = async () => {
+    const no = parseInt(newSprintNo, 10);
+    if (isNaN(no) || no < 1) { showToast("Enter a valid sprint number.", true); return; }
+    if ((sprints || []).find(s => s.sprint_no === no)) { showToast(`Sprint ${no} already exists.`, true); return; }
+    setCreating(true);
+    try {
+      await onCreate(projectKey, release, no);
+      setNewSprintNo("");
+      setAdding(false);
+      showToast(`Sprint ${no} created.`);
+    } catch (e) {
+      showToast(e.message || "Failed to create sprint.", true);
+    } finally {
+      setCreating(false);
+    }
+  };
 
-  // Aggregates
-  const totalProjects      = filtered.length;
-  const totalTestCases     = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
-  const totalAutomated     = filtered.reduce((s, p) => s + (p.test_stats?.automated_test_cases || 0), 0);
-  const avgAutomationRate  = totalProjects > 0
-    ? filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.automation_rate) || 0), 0) / totalProjects
-    : 0;
-  const avgExecutionPct    = totalProjects > 0
-    ? filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.execution_percentage) || 0), 0) / totalProjects
-    : 0;
-
-  const fwAggregate = (() => {
-    const withUtil = filtered.filter(p => p.test_stats?.framework_utilization_rate);
-    if (withUtil.length === 0) return null;
-    const sums = {};
-    Object.keys(FRAMEWORK_LABELS).forEach(k => { sums[k] = 0; });
-    withUtil.forEach(p => {
-      const u = p.test_stats.framework_utilization_rate;
-      Object.keys(FRAMEWORK_LABELS).forEach(k => { sums[k] += parseFloat(u[k]) || 0; });
-    });
-    const result = {};
-    Object.keys(FRAMEWORK_LABELS).forEach(k => { result[k] = sums[k] / withUtil.length; });
-    return result;
-  })();
-
-  if (loading && (!Array.isArray(report) || report.length === 0)) return <LoadingScreen />;
+  const nextSprintNo = sprints && sprints.length > 0
+    ? Math.max(...sprints.map(s => s.sprint_no)) + 1
+    : 1;
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 2 }}>Project Execution Summary</h2>
-          <p style={{ fontSize: 13, color: "#64748b" }}>
-            Test execution metrics, automation rates, and framework utilization across all projects
-          </p>
+    <div style={tableWrap}>
+      <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>
+          Sprints
+          {release && <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6, fontSize: 12 }}>— {release}</span>}
+        </span>
+        {!adding && (
+          <button onClick={() => { setAdding(true); setNewSprintNo(String(nextSprintNo)); }} style={ghostBtnStyle}>
+            + Add Sprint
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <div style={{ padding: "10px 12px", borderBottom: "1px solid #d1d5db", background: "#f9fafb", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 13, color: "#374151", whiteSpace: "nowrap" }}>Sprint No.</span>
+          <input
+            type="number"
+            min="1"
+            value={newSprintNo}
+            onChange={e => setNewSprintNo(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setAdding(false); setNewSprintNo(""); } }}
+            autoFocus
+            style={{ width: 80, padding: "4px 8px", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 4 }}
+          />
+          <button
+            onClick={handleCreate}
+            disabled={creating}
+            style={{ ...btnStyle, padding: "5px 12px", fontSize: 13 }}
+          >
+            {creating ? "Creating…" : "Create"}
+          </button>
+          <button
+            onClick={() => { setAdding(false); setNewSprintNo(""); }}
+            style={{ ...ghostBtnStyle, padding: "5px 12px", fontSize: 13 }}
+          >
+            Cancel
+          </button>
         </div>
-        <button onClick={reload} style={{
-          background: "#1e3a5f", color: "#fff", border: "none",
-          borderRadius: 6, padding: "8px 16px", cursor: "pointer",
-          fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
-        }}>
-          ↻ Refresh
-        </button>
-      </div>
+      )}
 
-      {/* Top stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
-        {[
-          { label: "Total Projects",   value: totalProjects,                   color: "#1e3a5f", bg: "#f0f7ff" },
-          { label: "Total Test Cases", value: totalTestCases.toLocaleString(),  color: "#15803d", bg: "#f0fdf4" },
-          { label: "Automated TCs",    value: totalAutomated.toLocaleString(),  color: "#7e22ce", bg: "#faf5ff" },
-          { label: "Manual TCs",       value: (totalTestCases - totalAutomated).toLocaleString(), color: "#b45309", bg: "#fffbeb" },
-        ].map(card => (
-          <div key={card.label} style={{
-            background: card.bg, borderRadius: 10, padding: "16px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: `1px solid ${card.bg}`,
-          }}>
-            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-              {card.label}
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: card.color }}>{card.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* 3 pie charts in a row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
-        {fwAggregate && <FrameworkPie data={fwAggregate} />}
-        <PercentPie
-          title="Avg. Automation Rate"
-          subtitle="Automated vs total test cases"
-          value={avgAutomationRate}
-          color="#7c3aed"
-          trackColor="#ede9fe"
-          centerLabel="Automated"
-        />
-        <PercentPie
-          title="Avg. Execution %"
-          subtitle="Executed vs registered test cases"
-          value={avgExecutionPct}
-          color="#0891b2"
-          trackColor="#e0f2fe"
-          centerLabel="Executed"
-        />
-      </div>
-
-      {/* Search + error */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-        <input
-          placeholder="Search projects…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ maxWidth: 280 }}
-        />
-        {error && <span style={{ color: "#dc2626", fontSize: 13 }}>{error}</span>}
-      </div>
-
-      {/* Table */}
-      <div style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", border: "1px solid #e2e8f0" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+      {loading && <div style={{ padding: "16px", color: "#9ca3af", fontSize: 13 }}>Loading sprints…</div>}
+      {error && !loading && <div style={{ padding: "16px", color: "#dc2626", fontSize: 13 }}>{error}</div>}
+      {!loading && !error && (
+        <table>
           <thead>
-            <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-              <th style={{ width: 30, padding: "12px 8px 12px 16px" }} />
-              <th onClick={() => toggleSort("project_name")} style={{ ...thStyle("project_name"), padding: "12px 16px" }}>
-                Project <SortIcon col="project_name" />
-              </th>
-              <th onClick={() => toggleSort("total_test_cases")} style={{ ...thStyle("total_test_cases"), padding: "12px 16px" }}>
-                Total TCs <SortIcon col="total_test_cases" />
-              </th>
-              <th style={{ padding: "12px 16px" }}>Automated TCs</th>
-              <th onClick={() => toggleSort("automation_rate")} style={{ ...thStyle("automation_rate"), padding: "12px 16px" }}>
-                Automation Rate <SortIcon col="automation_rate" />
-              </th>
-              <th onClick={() => toggleSort("execution_percentage")} style={{ ...thStyle("execution_percentage"), padding: "12px 16px" }}>
-                Execution % <SortIcon col="execution_percentage" />
-              </th>
-              <th style={{ padding: "12px 16px" }}>Frameworks</th>
-              <th style={{ padding: "12px 16px" }}>Sprints</th>
-              <th style={{ padding: "12px 16px" }}>Status</th>
-            </tr>
+            <tr><th>Sprint No.</th><th>Test Case Count</th></tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && !loading && (
-              <tr>
-                <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
-                  {search ? "No projects match your search." : "No report data available."}
-                </td>
-              </tr>
-            )}
-            {filtered.map((project) => {
-              const stats    = project.test_stats || {};
-              const isOpen   = !!expanded[project.project_key];
-              const autoRate = parseFloat(stats.automation_rate) || 0;
-              const execPct  = parseFloat(stats.execution_percentage) || 0;
+            {(!sprints || sprints.length === 0) ? (
+              <tr><td colSpan={2} style={empty}>No sprints found for this release.</td></tr>
+            ) : sprints.map(s => {
+              const cell = cells[s.sprint_no] || { value: String(s.test_case_count ?? ""), saving: false, dirty: false };
               return (
-                <React.Fragment key={project.project_key}>
-                  <tr
-                    onClick={() => toggleExpand(project.project_key)}
-                    style={{ cursor: "pointer", transition: "background 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
-                    onMouseLeave={e => e.currentTarget.style.background = isOpen ? "#f0f7ff" : ""}
-                  >
-                    <td style={{ padding: "10px 8px 10px 16px", color: "#94a3b8", fontSize: 13, textAlign: "center", background: isOpen ? "#f0f7ff" : undefined }}>
-                      {isOpen ? "▾" : "▸"}
-                    </td>
-                    <td style={{ padding: "10px 16px", background: isOpen ? "#f0f7ff" : undefined }}>
-                      <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{project.project_name}</div>
-                      <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{project.project_key}</div>
-                    </td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <span style={{ fontWeight: 600, color: "#1e293b" }}>{(stats.total_test_cases || 0).toLocaleString()}</span>
-                    </td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <span style={{ fontWeight: 600, color: "#2563eb" }}>{(stats.automated_test_cases || 0).toLocaleString()}</span>
-                    </td>
-                    <td style={{ padding: "10px 16px", minWidth: 160 }}>
-                      <MiniBar value={autoRate} color="#7c3aed" />
-                    </td>
-                    <td style={{ padding: "10px 16px", minWidth: 160 }}>
-                      <MiniBar value={execPct} color="#0891b2" />
-                    </td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <FrameworkCell utilization={stats.framework_utilization_rate} />
-                    </td>
-                    <td style={{ padding: "10px 16px", textAlign: "center" }}>
-                      <span style={{ fontWeight: 600, color: "#1e293b" }}>
-                        {project.completed_sprints != null ? project.completed_sprints : "—"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <StatusBadge status={stats.status} />
-                    </td>
-                  </tr>
-                  {isOpen && <ExpandedRow project={project} />}
-                </React.Fragment>
+                <tr key={s.sprint_no}>
+                  <td style={{ color: "#374151", fontWeight: 500 }}>Sprint {s.sprint_no}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={cell.value}
+                        onChange={e => handleChange(s.sprint_no, e.target.value)}
+                        onBlur={() => handleBlur(s.sprint_no)}
+                        onKeyDown={e => handleKeyDown(e, s.sprint_no)}
+                        disabled={cell.saving}
+                        style={{
+                          width: 90, padding: "4px 8px", fontSize: 13,
+                          border: cell.dirty ? "1px solid #2563eb" : "1px solid #d1d5db",
+                          borderRadius: 4, background: cell.saving ? "#f9fafb" : "#fff",
+                          outline: "none",
+                        }}
+                      />
+                      {cell.saving && <span style={{ fontSize: 11, color: "#9ca3af" }}>Saving…</span>}
+                      {cell.dirty && !cell.saving && <span style={{ fontSize: 11, color: "#6b7280" }}>Enter or click away to save</span>}
+                    </div>
+                  </td>
+                </tr>
               );
             })}
           </tbody>
         </table>
-      </div>
-
-      {filtered.length > 0 && (
-        <div style={{ marginTop: 10, fontSize: 12, color: "#94a3b8", textAlign: "right" }}>
-          Showing {filtered.length} of {(report || []).length} projects
-        </div>
       )}
     </div>
   );
 }
+
+// ── Project Settings Panel ────────────────────────────────────────────────────
+
+function ProjectSettingsPanel({ projectKey, settings, loading, releaseOptions, onSave, onReleaseChange }) {
+  const existing = settings ?? null;
+  const [releaseName, setReleaseName] = useState("");
+  const [sprints, setSprints]         = useState("");
+  const [saving, setSaving]           = useState(false);
+  const [dirty, setDirty]             = useState(false);
+
+  useEffect(() => {
+    // Reset fields when switching to a different project
+    setReleaseName("");
+    setSprints("");
+    setDirty(false);
+  }, [projectKey]);
+
+  // Populate once when settings first arrive (fields still blank)
+  useEffect(() => {
+    if (existing && releaseName === "" && sprints === "") {
+      setReleaseName(existing.active_release_name ?? "");
+      setSprints(existing.completed_sprints != null ? String(existing.completed_sprints) : "");
+    }
+  }, [existing]);
+
+  const handleReleaseChange = (e) => {
+    setReleaseName(e.target.value);
+    setDirty(true);
+    onReleaseChange(e.target.value);
+  };
+
+  const handleSave = async () => {
+    const sprintVal = sprints === "" ? null : parseInt(sprints, 10);
+    if (sprints !== "" && isNaN(sprintVal)) return;
+    setSaving(true);
+    try {
+      await onSave(projectKey, releaseName || null, sprintVal, existing !== null);
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={tableWrap}>
+        <div style={tableHeader}>Project Settings</div>
+        <div style={{ padding: "20px 16px", color: "#9ca3af", fontSize: 13 }}>Loading settings…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={tableWrap}>
+      <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>Project Settings</span>
+        {existing === null && (
+          <span style={{ fontSize: 11, fontWeight: 400, color: "#f59e0b", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 99, padding: "2px 8px" }}>
+            Not configured
+          </span>
+        )}
+      </div>
+      <div style={{ padding: "16px", display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 16, alignItems: "end" }}>
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 5, color: "#374151" }}>
+            Active Release
+          </label>
+          <select
+            value={releaseName}
+            onChange={handleReleaseChange}
+            style={{ width: "100%", padding: "7px 10px", fontSize: 14, border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", fontFamily: "Arial, sans-serif" }}
+          >
+            <option value="">— Select a release —</option>
+            {releaseOptions.map(r => (
+              <option key={r.name} value={r.name}>{r.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 5, color: "#374151" }}>
+            Completed Sprints
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={sprints}
+            onChange={e => { setSprints(e.target.value); setDirty(true); }}
+            placeholder="e.g. 4"
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving || !dirty}
+          style={{
+            background: dirty ? "#2563eb" : "#e5e7eb",
+            color: dirty ? "#fff" : "#9ca3af",
+            border: "none", borderRadius: 4,
+            padding: "7px 16px", cursor: dirty ? "pointer" : "default",
+            fontSize: 13, fontWeight: 600, fontFamily: "Arial, sans-serif",
+            transition: "background 0.15s", whiteSpace: "nowrap", height: 36,
+          }}
+        >
+          {saving ? "Saving…" : existing === null ? "Create Settings" : "Save Changes"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function ProjectsPage({
+  projects, projectUsers, releases, users,
+  loadUsers, loadReleases, createProject, deleteProject,
+  addUser, removeUser, createRelease, deleteRelease,
+  projectSettings, loadProjectSettings, saveProjectSettings, psLoading,
+  sprints, spLoading, spError, loadSprints, updateTestCaseCount, createSprint, sprintCacheKey,
+  showToast,
+}) {
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [modal, setModal]                 = useState(null);
+  const [search, setSearch]               = useState("");
+  const [memberSearch, setMemberSearch]   = useState("");
+  const [releaseSearch, setReleaseSearch] = useState("");
+  const [activeRelease, setActiveRelease] = useState("");
+
+  useEffect(() => {
+    if (selectedProject) {
+      loadUsers(selectedProject.project_key);
+      loadReleases(selectedProject.project_key);
+      loadProjectSettings(selectedProject.project_key);
+      setActiveRelease("");
+    }
+  }, [selectedProject]);
+
+  // When settings arrive, auto-set active release and load sprints
+  const settingsForProject = selectedProject ? projectSettings[selectedProject.project_key] : null;
+  useEffect(() => {
+    if (settingsForProject?.active_release_name && selectedProject) {
+      const rel = settingsForProject.active_release_name;
+      setActiveRelease(rel);
+      loadSprints(selectedProject.project_key, rel);
+    }
+  }, [settingsForProject]);
+
+  const openProject = (p) => {
+    setSelectedProject(p);
+    setMemberSearch("");
+    setReleaseSearch("");
+  };
+
+  const handleReleaseDropdownChange = (relName) => {
+    setActiveRelease(relName);
+    if (relName && selectedProject) loadSprints(selectedProject.project_key, relName);
+  };
+
+  const handleCreateProject = async (project_key, name) => {
+    try { await createProject(project_key, name); setModal(null); showToast("Project created."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const handleCreateRelease = async (name) => {
+    try { await createRelease(selectedProject.project_key, name); setModal(null); showToast("Release created."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const handleAddUser = async (username) => {
+    try { await addUser(selectedProject.project_key, username); setModal(null); showToast("User added."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const handleRemoveUser = async (username) => {
+    try { await removeUser(selectedProject.project_key, username); showToast("User removed."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const handleDeleteProject = async (project_key) => {
+    if (!window.confirm("Delete this project? This cannot be undone.")) return;
+    try { await deleteProject(project_key); setSelectedProject(null); showToast("Project deleted."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const handleDeleteRelease = async (release_id) => {
+    if (!window.confirm("Delete this release? This cannot be undone.")) return;
+    try { await deleteRelease(selectedProject.project_key, release_id); showToast("Release deleted."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const handleSaveSettings = async (project_key, active_release_name, completed_sprints, exists) => {
+    try { await saveProjectSettings(project_key, active_release_name, completed_sprints, exists); showToast("Settings saved."); }
+    catch (e) { showToast(e.message, true); }
+  };
+
+  const allMembers = selectedProject ? ((projectUsers || {})[selectedProject.project_key] || []) : [];
+  const allRels    = selectedProject ? ((releases || {})[selectedProject.project_key] || []) : [];
+  const available  = (users || []).filter(u => !allMembers.find(m => m.id === u.id));
+
+  const filteredProjects = (projects || []).filter(p => {
+    const q = search.toLowerCase();
+    return p.name.toLowerCase().includes(q) || p.project_key.toLowerCase().includes(q);
+  });
+  const filteredMembers = allMembers.filter(u => {
+    const mq = memberSearch.toLowerCase();
+    return u.username.toLowerCase().includes(mq) || u.role.toLowerCase().includes(mq);
+  });
+  const filteredRels = allRels.filter(r => r.name.toLowerCase().includes(releaseSearch.toLowerCase()));
+
+  const spKey      = selectedProject && activeRelease ? sprintCacheKey(selectedProject.project_key, activeRelease) : null;
+  const sprintData = spKey ? (sprints[spKey] || null) : null;
+  const sprintLoad = spKey ? !!spLoading[spKey] : false;
+  const sprintErr  = spKey ? (spError[spKey] || null) : null;
+
+  return (
+    <>
+      {!selectedProject ? (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 600 }}>Projects</h2>
+            <button onClick={() => setModal("createProject")} style={btnStyle}>+ New Project</button>
+          </div>
+
+          <input
+            type="text"
+            placeholder="Search by name or project key..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ marginBottom: 14, width: 300 }}
+          />
+
+          <div style={tableWrap}>
+            <table>
+              <thead><tr><th>Project Key</th><th>Name</th><th></th></tr></thead>
+              <tbody>
+                {filteredProjects.length === 0
+                  ? <tr><td colSpan={3} style={empty}>{(projects || []).length === 0 ? "No projects found." : "No results match your search."}</td></tr>
+                  : filteredProjects.map(p => (
+                    <tr key={p.project_key}>
+                      <td style={{ fontFamily: "monospace", color: "#6b7280" }}>{p.project_key}</td>
+                      <td><button className="link" onClick={() => openProject(p)}>{p.name}</button></td>
+                      <td style={{ display: "flex", gap: 12 }}>
+                        <button className="link" onClick={() => openProject(p)}>View</button>
+                        <button className="link-red" onClick={() => handleDeleteProject(p.project_key)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ marginBottom: 14 }}>
+            <button className="link" onClick={() => setSelectedProject(null)}>← Back to Projects</button>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 600 }}>
+              {selectedProject.name}{" "}
+              <span style={{ fontFamily: "monospace", fontWeight: 400, color: "#6b7280", fontSize: 13 }}>({selectedProject.project_key})</span>
+            </h2>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setModal("addUser")} style={ghostBtnStyle}>+ Add User</button>
+              <button onClick={() => setModal("createRelease")} style={btnStyle}>+ New Release</button>
+              <button onClick={() => handleDeleteProject(selectedProject.project_key)} style={dangerBtnStyle}>Delete Project</button>
+            </div>
+          </div>
+
+          {/* Members + Releases */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+            <div style={tableWrap}>
+              <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Members</span>
+                <input type="text" placeholder="Search members..." value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)} style={{ width: 180, padding: "4px 8px", fontSize: 13 }} />
+              </div>
+              <table>
+                <thead><tr><th>Username</th><th>Role</th><th>Active</th><th></th></tr></thead>
+                <tbody>
+                  {filteredMembers.length === 0
+                    ? <tr><td colSpan={4} style={empty}>{allMembers.length === 0 ? "No members yet." : "No results match your search."}</td></tr>
+                    : filteredMembers.map(u => (
+                      <tr key={u.id}>
+                        <td>{u.username}</td>
+                        <td style={{ color: "#6b7280" }}>{u.role}</td>
+                        <td style={{ color: u.is_active ? "#16a34a" : "#6b7280" }}>{u.is_active ? "Yes" : "No"}</td>
+                        <td><button className="link-red" onClick={() => handleRemoveUser(u.username)}>Remove</button></td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={tableWrap}>
+              <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Releases</span>
+                <input type="text" placeholder="Search releases..." value={releaseSearch}
+                  onChange={e => setReleaseSearch(e.target.value)} style={{ width: 180, padding: "4px 8px", fontSize: 13 }} />
+              </div>
+              <table>
+                <thead><tr><th>Name</th><th>Created</th><th></th></tr></thead>
+                <tbody>
+                  {filteredRels.length === 0
+                    ? <tr><td colSpan={3} style={empty}>{allRels.length === 0 ? "No releases yet." : "No results match your search."}</td></tr>
+                    : filteredRels.map(r => (
+                      <tr key={r.id}>
+                        <td style={{ color: "#2563eb" }}>{r.name}</td>
+                        <td style={{ color: "#6b7280" }}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}</td>
+                        <td><button className="link-red" onClick={() => handleDeleteRelease(r.id)}>Delete</button></td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Project Settings */}
+          <div style={{ marginBottom: 20 }}>
+            <ProjectSettingsPanel
+              projectKey={selectedProject.project_key}
+              settings={projectSettings[selectedProject.project_key]}
+              loading={!!psLoading[selectedProject.project_key]}
+              releaseOptions={allRels}
+              onSave={handleSaveSettings}
+              onReleaseChange={handleReleaseDropdownChange}
+            />
+          </div>
+
+          {/* Sprint Table */}
+          {activeRelease && (
+            <SprintTable
+              projectKey={selectedProject.project_key}
+              release={activeRelease}
+              sprints={sprintData}
+              loading={sprintLoad}
+              error={sprintErr}
+              onUpdate={updateTestCaseCount}
+              onCreate={createSprint}
+              showToast={showToast}
+            />
+          )}
+        </>
+      )}
+
+      {modal === "createProject" && <CreateProjectModal onSubmit={handleCreateProject} onClose={() => setModal(null)} />}
+      {modal === "createRelease" && <CreateReleaseModal project={selectedProject} onSubmit={handleCreateRelease} onClose={() => setModal(null)} />}
+      {modal === "addUser"       && <AddUserModal project={selectedProject} availableUsers={available} onSubmit={handleAddUser} onClose={() => setModal(null)} />}
+    </>
+  );
+}
+
+const btnStyle       = { background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
+const dangerBtnStyle = { background: "#fff", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
+const ghostBtnStyle  = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontFamily: "Arial, sans-serif" };
+const tableWrap      = { background: "#fff", border: "1px solid #d1d5db", borderRadius: 4, overflow: "hidden" };
+const tableHeader    = { padding: "9px 12px", borderBottom: "1px solid #d1d5db", fontWeight: 600, background: "#f9fafb", fontSize: 14 };
+const empty          = { color: "#9ca3af" };
