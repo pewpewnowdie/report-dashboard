@@ -16,7 +16,7 @@ const FRAMEWORK_COLORS = {
   oth: { bg: "#f1f5f9", text: "#475569", bar: "#94a3b8", pie: "#94a3b8" },
 };
 
-// ── Small components ──────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
   const s = (status || "").toLowerCase();
@@ -76,7 +76,121 @@ function FrameworkCell({ utilization }) {
   );
 }
 
-// ── Expanded row (per-project framework bars) ─────────────────────────────────
+// ── SVG Donut ─────────────────────────────────────────────────────────────────
+
+function buildDonutSlices(segments, cx, cy, r, innerR) {
+  const total = segments.reduce((s, e) => s + e.val, 0);
+  if (total === 0) return [];
+  const slices = [];
+  let angle = -Math.PI / 2;
+  segments.forEach(({ key, color, val }) => {
+    const sweep = (val / total) * 2 * Math.PI;
+    const x1  = cx + r      * Math.cos(angle);
+    const y1  = cy + r      * Math.sin(angle);
+    const x2  = cx + r      * Math.cos(angle + sweep);
+    const y2  = cy + r      * Math.sin(angle + sweep);
+    const ix1 = cx + innerR * Math.cos(angle);
+    const iy1 = cy + innerR * Math.sin(angle);
+    const ix2 = cx + innerR * Math.cos(angle + sweep);
+    const iy2 = cy + innerR * Math.sin(angle + sweep);
+    const large = sweep > Math.PI ? 1 : 0;
+    slices.push({
+      key,
+      color,
+      d: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`,
+    });
+    angle += sweep;
+  });
+  return slices;
+}
+
+// ── Pie card variants ─────────────────────────────────────────────────────────
+
+function FrameworkPie({ data }) {
+  const entries = Object.entries(FRAMEWORK_LABELS)
+    .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0, color: FRAMEWORK_COLORS[key].pie }))
+    .filter(e => e.val > 0)
+    .sort((a, b) => b.val - a.val);
+
+  if (entries.length === 0) return null;
+  const slices = buildDonutSlices(entries, 80, 80, 65, 42);
+
+  return (
+    <div style={pieCardStyle}>
+      <div style={pieTitleStyle}>Framework Utilization</div>
+      <div style={pieSubStyle}>Avg. across all projects</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
+        <svg width="160" height="160" viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
+          {slices.map(({ key, color, d }) => (
+            <path key={key} d={d} fill={color} stroke="#fff" strokeWidth="2" />
+          ))}
+        </svg>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {entries.map(({ key, label, val }) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: FRAMEWORK_COLORS[key].pie, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: "#374151", minWidth: 72 }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b" }}>{val.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PercentPie({ title, subtitle, value, color, trackColor, centerLabel }) {
+  const pct = Math.min(Math.max(parseFloat(value) || 0, 0), 100);
+  const remainder = 100 - pct;
+  const segments = [
+    { key: "val",  val: pct,       color },
+    { key: "rest", val: remainder, color: trackColor },
+  ];
+  const slices = buildDonutSlices(segments, 80, 80, 65, 42);
+
+  return (
+    <div style={pieCardStyle}>
+      <div style={pieTitleStyle}>{title}</div>
+      <div style={pieSubStyle}>{subtitle}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
+        <div style={{ position: "relative", width: 160, height: 160, flexShrink: 0 }}>
+          <svg width="160" height="160" viewBox="0 0 160 160">
+            {slices.map(({ key, color: c, d }) => (
+              <path key={key} d={d} fill={c} stroke="#fff" strokeWidth="2" />
+            ))}
+            <text x="80" y="75" textAnchor="middle" style={{ fontSize: 22, fontWeight: 700, fill: "#1e293b" }}>
+              {pct.toFixed(1)}%
+            </text>
+            <text x="80" y="93" textAnchor="middle" style={{ fontSize: 11, fill: "#94a3b8" }}>
+              {centerLabel}
+            </text>
+          </svg>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "#374151" }}>{centerLabel}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", marginLeft: 4 }}>{pct.toFixed(1)}%</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: trackColor, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "#374151" }}>Remaining</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", marginLeft: 4 }}>{remainder.toFixed(1)}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const pieCardStyle = {
+  background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "16px 20px",
+};
+const pieTitleStyle = { fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 };
+const pieSubStyle   = { fontSize: 11, color: "#94a3b8" };
+
+// ── Expanded row ──────────────────────────────────────────────────────────────
 
 function ExpandedRow({ project }) {
   const util = (project.test_stats || {}).framework_utilization_rate || {};
@@ -100,69 +214,6 @@ function ExpandedRow({ project }) {
         </div>
       </td>
     </tr>
-  );
-}
-
-// ── Aggregate pie chart (pure SVG) ────────────────────────────────────────────
-
-function FrameworkPieChart({ data }) {
-  const entries = Object.entries(FRAMEWORK_LABELS)
-    .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
-    .filter(e => e.val > 0)
-    .sort((a, b) => b.val - a.val);
-
-  if (entries.length === 0) return null;
-
-  const total = entries.reduce((s, e) => s + e.val, 0);
-  const cx = 100, cy = 100, r = 80, innerR = 52;
-
-  const slices = [];
-  let angle = -Math.PI / 2;
-  entries.forEach(({ key, val }) => {
-    const sweep = (val / total) * 2 * Math.PI;
-    const x1  = cx + r       * Math.cos(angle);
-    const y1  = cy + r       * Math.sin(angle);
-    const x2  = cx + r       * Math.cos(angle + sweep);
-    const y2  = cy + r       * Math.sin(angle + sweep);
-    const ix1 = cx + innerR  * Math.cos(angle);
-    const iy1 = cy + innerR  * Math.sin(angle);
-    const ix2 = cx + innerR  * Math.cos(angle + sweep);
-    const iy2 = cy + innerR  * Math.sin(angle + sweep);
-    const large = sweep > Math.PI ? 1 : 0;
-    slices.push({
-      key,
-      d: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`,
-    });
-    angle += sweep;
-  });
-
-  return (
-    <div style={{
-      background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "16px 20px",
-      marginBottom: 20, display: "flex", alignItems: "center", gap: 32,
-    }}>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-          Aggregate Framework Utilization
-        </div>
-        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 16 }}>Averaged across all projects</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {entries.map(({ key, label, val }) => (
-            <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: FRAMEWORK_COLORS[key].pie, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: "#374151", minWidth: 80 }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{val.toFixed(1)}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <svg width="200" height="200" viewBox="0 0 200 200" style={{ flexShrink: 0 }}>
-        {slices.map(({ key, d }) => (
-          <path key={key} d={d} fill={FRAMEWORK_COLORS[key].pie} stroke="#fff" strokeWidth="2" />
-        ))}
-      </svg>
-    </div>
   );
 }
 
@@ -205,10 +256,10 @@ function LoadingScreen() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ReportPage({ report, loading, error, reload }) {
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]     = useState("");
   const [expanded, setExpanded] = useState({});
-  const [sortKey, setSortKey] = useState("project_name");
-  const [sortDir, setSortDir] = useState("asc");
+  const [sortKey, setSortKey]   = useState("project_name");
+  const [sortDir, setSortDir]   = useState("asc");
 
   const toggleExpand = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -222,9 +273,9 @@ export default function ReportPage({ report, loading, error, reload }) {
     .filter(p => p.project_name?.toLowerCase().includes(q) || p.project_key?.toLowerCase().includes(q))
     .sort((a, b) => {
       let av, bv;
-      if      (sortKey === "project_name")       { av = a.project_name; bv = b.project_name; }
-      else if (sortKey === "total_test_cases")   { av = a.test_stats?.total_test_cases || 0; bv = b.test_stats?.total_test_cases || 0; }
-      else if (sortKey === "automation_rate")    { av = parseFloat(a.test_stats?.automation_rate) || 0; bv = parseFloat(b.test_stats?.automation_rate) || 0; }
+      if      (sortKey === "project_name")         { av = a.project_name; bv = b.project_name; }
+      else if (sortKey === "total_test_cases")     { av = a.test_stats?.total_test_cases || 0; bv = b.test_stats?.total_test_cases || 0; }
+      else if (sortKey === "automation_rate")      { av = parseFloat(a.test_stats?.automation_rate) || 0; bv = parseFloat(b.test_stats?.automation_rate) || 0; }
       else if (sortKey === "execution_percentage") { av = parseFloat(a.test_stats?.execution_percentage) || 0; bv = parseFloat(b.test_stats?.execution_percentage) || 0; }
       else { av = a[sortKey]; bv = b[sortKey]; }
       if (av < bv) return sortDir === "asc" ? -1 : 1;
@@ -243,14 +294,16 @@ export default function ReportPage({ report, loading, error, reload }) {
     background: sortKey === col ? "#f0f7ff" : undefined,
   });
 
-  const totalProjects  = filtered.length;
-  const totalTestCases = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
-  const avgAutomation  = totalProjects > 0
-    ? (filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.automation_rate) || 0), 0) / totalProjects).toFixed(1)
-    : "—";
-  const avgExecution   = totalProjects > 0
-    ? (filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.execution_percentage) || 0), 0) / totalProjects).toFixed(1)
-    : "—";
+  // Aggregates
+  const totalProjects      = filtered.length;
+  const totalTestCases     = filtered.reduce((s, p) => s + (p.test_stats?.total_test_cases || 0), 0);
+  const totalAutomated     = filtered.reduce((s, p) => s + (p.test_stats?.automated_test_cases || 0), 0);
+  const avgAutomationRate  = totalProjects > 0
+    ? filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.automation_rate) || 0), 0) / totalProjects
+    : 0;
+  const avgExecutionPct    = totalProjects > 0
+    ? filtered.reduce((s, p) => s + (parseFloat(p.test_stats?.execution_percentage) || 0), 0) / totalProjects
+    : 0;
 
   const fwAggregate = (() => {
     const withUtil = filtered.filter(p => p.test_stats?.framework_utilization_rate);
@@ -287,13 +340,13 @@ export default function ReportPage({ report, loading, error, reload }) {
         </button>
       </div>
 
-      {/* Summary cards */}
+      {/* Top stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
         {[
-          { label: "Total Projects",      value: totalProjects,                color: "#1e3a5f", bg: "#f0f7ff" },
-          { label: "Total Test Cases",    value: totalTestCases.toLocaleString(), color: "#15803d", bg: "#f0fdf4" },
-          { label: "Avg. Automation Rate", value: `${avgAutomation}%`,         color: "#7e22ce", bg: "#faf5ff" },
-          { label: "Avg. Execution",      value: `${avgExecution}%`,           color: "#b45309", bg: "#fffbeb" },
+          { label: "Total Projects",       value: totalProjects,                   color: "#1e3a5f", bg: "#f0f7ff" },
+          { label: "Total Test Cases",     value: totalTestCases.toLocaleString(),  color: "#15803d", bg: "#f0fdf4" },
+          { label: "Avg. Automation Rate", value: `${avgAutomationRate.toFixed(1)}%`, color: "#7e22ce", bg: "#faf5ff" },
+          { label: "Avg. Execution",       value: `${avgExecutionPct.toFixed(1)}%`,  color: "#b45309", bg: "#fffbeb" },
         ].map(card => (
           <div key={card.label} style={{
             background: card.bg, borderRadius: 10, padding: "16px 20px",
@@ -307,8 +360,45 @@ export default function ReportPage({ report, loading, error, reload }) {
         ))}
       </div>
 
-      {/* Aggregate framework pie chart */}
-      {fwAggregate && <FrameworkPieChart data={fwAggregate} />}
+      {/* Row 1: Framework + Automation Rate */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {fwAggregate && <FrameworkPie data={fwAggregate} />}
+        <PercentPie
+          title="Avg. Automation Rate"
+          subtitle="Automated vs total test cases"
+          value={avgAutomationRate}
+          color="#7c3aed"
+          trackColor="#ede9fe"
+          centerLabel="Automated"
+        />
+      </div>
+
+      {/* Row 2: Execution % + Automated TC count */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+        <PercentPie
+          title="Avg. Execution %"
+          subtitle="Executed vs registered test cases"
+          value={avgExecutionPct}
+          color="#0891b2"
+          trackColor="#e0f2fe"
+          centerLabel="Executed"
+        />
+        <div style={{
+          background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "16px 20px",
+          display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Automated Test Cases
+          </div>
+          <div style={{ fontSize: 52, fontWeight: 800, color: "#7c3aed", lineHeight: 1 }}>
+            {totalAutomated.toLocaleString()}
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8" }}>
+            out of {totalTestCases.toLocaleString()} total
+          </div>
+        </div>
+      </div>
 
       {/* Search + error */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -354,8 +444,8 @@ export default function ReportPage({ report, loading, error, reload }) {
               </tr>
             )}
             {filtered.map((project) => {
-              const stats   = project.test_stats || {};
-              const isOpen  = !!expanded[project.project_key];
+              const stats    = project.test_stats || {};
+              const isOpen   = !!expanded[project.project_key];
               const autoRate = parseFloat(stats.automation_rate) || 0;
               const execPct  = parseFloat(stats.execution_percentage) || 0;
               return (
@@ -390,7 +480,7 @@ export default function ReportPage({ report, loading, error, reload }) {
                     </td>
                     <td style={{ padding: "10px 16px", textAlign: "center" }}>
                       <span style={{ fontWeight: 600, color: "#1e293b" }}>
-                        {Array.isArray(project.sprints) ? project.sprints.length : "—"}
+                        {project.completed_sprints != null ? project.completed_sprints : "—"}
                       </span>
                     </td>
                     <td style={{ padding: "10px 16px" }}>
