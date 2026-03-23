@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const FRAMEWORK_LABELS = {
   pyp: "Playwright",
@@ -104,6 +104,102 @@ function ExpandedRow({ project }) {
         </div>
       </td>
     </tr>
+  );
+}
+
+const FW_PIE_COLORS = {
+  pyp: "#3b82f6",
+  pys: "#22c55e",
+  rob: "#eab308",
+  saf: "#a855f7",
+  oth: "#94a3b8",
+};
+
+function FrameworkPieChart({ data }) {
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+
+  useEffect(() => {
+    const entries = Object.entries(FRAMEWORK_LABELS)
+      .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
+      .filter(e => e.val > 0);
+
+    if (entries.length === 0) return;
+
+    const init = () => {
+      if (!canvasRef.current) return;
+      if (chartRef.current) chartRef.current.destroy();
+      chartRef.current = new window.Chart(canvasRef.current, {
+        type: "doughnut",
+        data: {
+          labels: entries.map(e => e.label),
+          datasets: [{
+            data: entries.map(e => parseFloat(e.val.toFixed(1))),
+            backgroundColor: entries.map(e => FW_PIE_COLORS[e.key]),
+            borderWidth: 2,
+            borderColor: "#fff",
+            hoverOffset: 6,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "62%",
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%`,
+              },
+            },
+          },
+        },
+      });
+    };
+
+    if (window.Chart) {
+      init();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js";
+      script.onload = init;
+      document.head.appendChild(script);
+    }
+
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [data]);
+
+  const entries = Object.entries(FRAMEWORK_LABELS)
+    .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0 }))
+    .filter(e => e.val > 0)
+    .sort((a, b) => b.val - a.val);
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "16px 20px",
+      marginBottom: 20, display: "flex", alignItems: "center", gap: 32,
+    }}>
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+          Aggregate Framework Utilization
+        </div>
+        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 16 }}>Averaged across all projects</div>
+        {/* Legend */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {entries.map(({ key, label, val }) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: FW_PIE_COLORS[key], flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: "#374151", minWidth: 80 }}>{label}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{val.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ position: "relative", width: 200, height: 200, flexShrink: 0 }}>
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
   );
 }
 
@@ -271,31 +367,8 @@ export default function ReportPage({ report, loading, error, reload }) {
         ))}
       </div>
 
-      {/* Aggregate Framework Utilization */}
-      {fwAggregate && (
-        <div style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "16px 20px", marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
-            Aggregate Framework Utilization
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-            {Object.entries(FRAMEWORK_LABELS).map(([key, label]) => {
-              const val = fwAggregate[key] || 0;
-              const c = FRAMEWORK_COLORS[key];
-              return (
-                <div key={key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: c.text, background: c.bg, borderRadius: 99, padding: "2px 8px" }}>{label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{val.toFixed(1)}%</span>
-                  </div>
-                  <div style={{ background: "#e5e7eb", borderRadius: 4, height: 8, overflow: "hidden" }}>
-                    <div style={{ width: `${Math.min(val, 100)}%`, background: c.bar, height: "100%", borderRadius: 4, transition: "width 0.4s" }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Aggregate Framework Utilization — Pie Chart */}
+      {fwAggregate && <FrameworkPieChart data={fwAggregate} />}
 
       {/* Controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
