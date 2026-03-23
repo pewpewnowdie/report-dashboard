@@ -345,10 +345,10 @@ export default function ReportPage({ report, loading, error, reload }) {
       {/* Top stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
         {[
-          { label: "Total Projects",       value: totalProjects,                   color: "#1e3a5f", bg: "#f0f7ff" },
-          { label: "Total Test Cases",     value: totalTestCases.toLocaleString(),  color: "#15803d", bg: "#f0fdf4" },
-          { label: "Avg. Automation Rate", value: `${avgAutomationRate.toFixed(1)}%`, color: "#7e22ce", bg: "#faf5ff" },
-          { label: "Avg. Execution",       value: `${avgExecutionPct.toFixed(1)}%`,  color: "#b45309", bg: "#fffbeb" },
+          { label: "Total Projects",   value: totalProjects,                   color: "#1e3a5f", bg: "#f0f7ff" },
+          { label: "Total Test Cases", value: totalTestCases.toLocaleString(),  color: "#15803d", bg: "#f0fdf4" },
+          { label: "Automated TCs",    value: totalAutomated.toLocaleString(),  color: "#7e22ce", bg: "#faf5ff" },
+          { label: "Manual TCs",       value: (totalTestCases - totalAutomated).toLocaleString(), color: "#b45309", bg: "#fffbeb" },
         ].map(card => (
           <div key={card.label} style={{
             background: card.bg, borderRadius: 10, padding: "16px 20px",
@@ -362,8 +362,8 @@ export default function ReportPage({ report, loading, error, reload }) {
         ))}
       </div>
 
-      {/* Row 1: Framework + Automation Rate */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      {/* 3 pie charts in a row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
         {fwAggregate && <FrameworkPie data={fwAggregate} />}
         <PercentPie
           title="Avg. Automation Rate"
@@ -373,10 +373,6 @@ export default function ReportPage({ report, loading, error, reload }) {
           trackColor="#ede9fe"
           centerLabel="Automated"
         />
-      </div>
-
-      {/* Row 2: Execution % + Automated TC count */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <PercentPie
           title="Avg. Execution %"
           subtitle="Executed vs registered test cases"
@@ -385,21 +381,6 @@ export default function ReportPage({ report, loading, error, reload }) {
           trackColor="#e0f2fe"
           centerLabel="Executed"
         />
-        <div style={{
-          background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "16px 20px",
-          display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8,
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Automated Test Cases
-          </div>
-          <div style={{ fontSize: 52, fontWeight: 800, color: "#7c3aed", lineHeight: 1 }}>
-            {totalAutomated.toLocaleString()}
-          </div>
-          <div style={{ fontSize: 13, color: "#94a3b8" }}>
-            out of {totalTestCases.toLocaleString()} total
-          </div>
-        </div>
       </div>
 
       {/* Search + error */}
