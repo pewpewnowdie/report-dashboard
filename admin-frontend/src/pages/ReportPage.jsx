@@ -269,7 +269,7 @@ export default function ReportPage({ report, loading, error, reload }) {
   };
 
   const q = search.toLowerCase();
-  const filtered = (report || [])
+  const filtered = (Array.isArray(report) ? report : [])
     .filter(p => p.project_name?.toLowerCase().includes(q) || p.project_key?.toLowerCase().includes(q))
     .sort((a, b) => {
       let av, bv;
@@ -319,7 +319,7 @@ export default function ReportPage({ report, loading, error, reload }) {
     return result;
   })();
 
-  if (loading && (!report || report.length === 0)) return <LoadingScreen />;
+  if (loading && (!Array.isArray(report) || report.length === 0)) return <LoadingScreen />;
 
   return (
     <div>
