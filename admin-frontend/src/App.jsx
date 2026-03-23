@@ -14,6 +14,7 @@ import { useReleases } from "./hooks/useReleases";
 import { useToast } from "./hooks/useToast";
 import { useReport } from "./hooks/useReport";
 import { useProjectSettings } from "./hooks/useProjectSettings";
+import { useSprints } from "./hooks/useSprints";
 
 export default function App() {
   const { isLoggedIn, login, logout, loading: authLoading, error: authError } = useAuth();
@@ -24,6 +25,7 @@ export default function App() {
   const { releases, loadForProject, loadForAll, createRelease, deleteRelease } = useReleases();
   const { report, loading: rLoading, error: rError, reload: reloadReport } = useReport(isLoggedIn);
   const { settings: projectSettings, loading: psLoading, load: loadProjectSettings, save: saveProjectSettings } = useProjectSettings();
+  const { sprints, loading: spLoading, error: spError, load: loadSprints, updateTestCaseCount, cacheKey: sprintCacheKey } = useSprints();
   const { toast, showToast } = useToast();
 
   const loading = pLoading || uLoading;
@@ -72,6 +74,12 @@ export default function App() {
             loadProjectSettings={loadProjectSettings}
             saveProjectSettings={saveProjectSettings}
             psLoading={psLoading}
+            sprints={sprints}
+            spLoading={spLoading}
+            spError={spError}
+            loadSprints={loadSprints}
+            updateTestCaseCount={updateTestCaseCount}
+            sprintCacheKey={sprintCacheKey}
             showToast={showToast}
           />
         )}

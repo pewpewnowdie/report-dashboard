@@ -42,3 +42,8 @@ export const projectSettingsApi = {
   create: (body)               => api.post("/project_settings", body),
   update: (body)               => api.put("/project_settings", body),
 };
+
+export const sprintsApi = {
+  get:    (project_key, release)                          => api.post("/sprints", { project_key, release }),
+  update: (project_key, release, sprint_no, test_case_count) => api.put("/update_sprint", { project_key, release, sprint_no, test_case_count }),
+};

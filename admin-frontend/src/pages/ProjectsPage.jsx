@@ -2,27 +2,130 @@ import React, { useState, useEffect } from "react";
 import CreateProjectModal from "../components/modals/CreateProjectModal";
 import CreateReleaseModal from "../components/modals/CreateReleaseModal";
 import AddUserModal from "../components/modals/AddUserModal";
-import { ModalShell, Field, ModalActions } from "../components/modals/ModalPrimitives";
 
-function ProjectSettingsPanel({ projectKey, settings, loading, onSave }) {
+// ── Sprint Table ─────────────────────────────────────────────────────────────
+
+function SprintTable({ projectKey, release, sprints, loading, error, onUpdate, showToast }) {
+  const [cells, setCells] = useState({});
+
+  useEffect(() => {
+    if (!sprints) return;
+    setCells(
+      Object.fromEntries(
+        sprints.map(s => [s.sprint_no, { value: String(s.test_case_count ?? ""), saving: false, dirty: false }])
+      )
+    );
+  }, [sprints]);
+
+  const handleChange = (sprint_no, val) => {
+    setCells(prev => ({ ...prev, [sprint_no]: { ...prev[sprint_no], value: val, dirty: true } }));
+  };
+
+  const handleBlur = async (sprint_no) => {
+    const cell = cells[sprint_no];
+    if (!cell || !cell.dirty) return;
+    const parsed = parseInt(cell.value, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      showToast("Test case count must be a non-negative number.", true);
+      const original = (sprints || []).find(s => s.sprint_no === sprint_no);
+      setCells(prev => ({ ...prev, [sprint_no]: { value: String(original?.test_case_count ?? ""), saving: false, dirty: false } }));
+      return;
+    }
+    setCells(prev => ({ ...prev, [sprint_no]: { ...prev[sprint_no], saving: true } }));
+    try {
+      await onUpdate(projectKey, release, sprint_no, parsed);
+      setCells(prev => ({ ...prev, [sprint_no]: { value: String(parsed), saving: false, dirty: false } }));
+    } catch (e) {
+      showToast(e.message || "Failed to update sprint.", true);
+      setCells(prev => ({ ...prev, [sprint_no]: { ...prev[sprint_no], saving: false } }));
+    }
+  };
+
+  const handleKeyDown = (e, sprint_no) => {
+    if (e.key === "Enter") e.target.blur();
+    if (e.key === "Escape") {
+      const original = (sprints || []).find(s => s.sprint_no === sprint_no);
+      setCells(prev => ({ ...prev, [sprint_no]: { value: String(original?.test_case_count ?? ""), saving: false, dirty: false } }));
+      e.target.blur();
+    }
+  };
+
+  return (
+    <div style={tableWrap}>
+      <div style={tableHeader}>
+        Sprints
+        {release && <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6, fontSize: 12 }}>— {release}</span>}
+      </div>
+      {loading && <div style={{ padding: "16px", color: "#9ca3af", fontSize: 13 }}>Loading sprints…</div>}
+      {error && !loading && <div style={{ padding: "16px", color: "#dc2626", fontSize: 13 }}>{error}</div>}
+      {!loading && !error && (
+        <table>
+          <thead>
+            <tr><th>Sprint No.</th><th>Test Case Count</th></tr>
+          </thead>
+          <tbody>
+            {(!sprints || sprints.length === 0) ? (
+              <tr><td colSpan={2} style={empty}>No sprints found for this release.</td></tr>
+            ) : sprints.map(s => {
+              const cell = cells[s.sprint_no] || { value: String(s.test_case_count ?? ""), saving: false, dirty: false };
+              return (
+                <tr key={s.sprint_no}>
+                  <td style={{ color: "#374151", fontWeight: 500 }}>Sprint {s.sprint_no}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={cell.value}
+                        onChange={e => handleChange(s.sprint_no, e.target.value)}
+                        onBlur={() => handleBlur(s.sprint_no)}
+                        onKeyDown={e => handleKeyDown(e, s.sprint_no)}
+                        disabled={cell.saving}
+                        style={{
+                          width: 90, padding: "4px 8px", fontSize: 13,
+                          border: cell.dirty ? "1px solid #2563eb" : "1px solid #d1d5db",
+                          borderRadius: 4, background: cell.saving ? "#f9fafb" : "#fff",
+                          outline: "none",
+                        }}
+                      />
+                      {cell.saving && <span style={{ fontSize: 11, color: "#9ca3af" }}>Saving…</span>}
+                      {cell.dirty && !cell.saving && <span style={{ fontSize: 11, color: "#6b7280" }}>Enter or click away to save</span>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+// ── Project Settings Panel ────────────────────────────────────────────────────
+
+function ProjectSettingsPanel({ projectKey, settings, loading, releaseOptions, onSave, onReleaseChange }) {
   const existing = settings ?? null;
   const [releaseName, setReleaseName] = useState("");
   const [sprints, setSprints]         = useState("");
   const [saving, setSaving]           = useState(false);
   const [dirty, setDirty]             = useState(false);
 
-  // Populate fields when settings load
   useEffect(() => {
     if (existing) {
       setReleaseName(existing.active_release_name ?? "");
       setSprints(existing.completed_sprints != null ? String(existing.completed_sprints) : "");
-      setDirty(false);
+    } else {
+      setReleaseName("");
+      setSprints("");
     }
-  }, [existing]);
+    setDirty(false);
+  }, [existing, projectKey]);
 
-  const handleChange = (setter) => (e) => {
-    setter(e.target.value);
+  const handleReleaseChange = (e) => {
+    setReleaseName(e.target.value);
     setDirty(true);
+    onReleaseChange(e.target.value);
   };
 
   const handleSave = async () => {
@@ -30,7 +133,7 @@ function ProjectSettingsPanel({ projectKey, settings, loading, onSave }) {
     if (sprints !== "" && isNaN(sprintVal)) return;
     setSaving(true);
     try {
-      await onSave(projectKey, releaseName.trim() || null, sprintVal, existing !== null);
+      await onSave(projectKey, releaseName || null, sprintVal, existing !== null);
       setDirty(false);
     } finally {
       setSaving(false);
@@ -56,19 +159,24 @@ function ProjectSettingsPanel({ projectKey, settings, loading, onSave }) {
           </span>
         )}
       </div>
-      <div style={{ padding: "16px" }}>
-        <div style={{ marginBottom: 14 }}>
+      <div style={{ padding: "16px", display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 16, alignItems: "end" }}>
+        <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 5, color: "#374151" }}>
-            Active Release Name
+            Active Release
           </label>
-          <input
+          <select
             value={releaseName}
-            onChange={handleChange(setReleaseName)}
-            placeholder="e.g. Release 3.0"
-            style={{ width: "100%" }}
-          />
+            onChange={handleReleaseChange}
+            style={{ width: "100%", padding: "7px 10px", fontSize: 14, border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", fontFamily: "Arial, sans-serif" }}
+          >
+            <option value="">— Select a release —</option>
+            {releaseOptions.map(r => (
+              <option key={r.name} value={r.name}>{r.name}</option>
+            ))}
+          </select>
         </div>
-        <div style={{ marginBottom: 16 }}>
+
+        <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 5, color: "#374151" }}>
             Completed Sprints
           </label>
@@ -76,51 +184,76 @@ function ProjectSettingsPanel({ projectKey, settings, loading, onSave }) {
             type="number"
             min="0"
             value={sprints}
-            onChange={handleChange(setSprints)}
+            onChange={e => { setSprints(e.target.value); setDirty(true); }}
             placeholder="e.g. 4"
             style={{ width: "100%" }}
           />
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button
-            onClick={handleSave}
-            disabled={saving || !dirty}
-            style={{
-              background: dirty ? "#2563eb" : "#e5e7eb",
-              color: dirty ? "#fff" : "#9ca3af",
-              border: "none", borderRadius: 4,
-              padding: "7px 16px", cursor: dirty ? "pointer" : "default",
-              fontSize: 13, fontWeight: 600, fontFamily: "Arial, sans-serif",
-              transition: "background 0.15s",
-            }}
-          >
-            {saving ? "Saving…" : existing === null ? "Create Settings" : "Save Changes"}
-          </button>
-        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving || !dirty}
+          style={{
+            background: dirty ? "#2563eb" : "#e5e7eb",
+            color: dirty ? "#fff" : "#9ca3af",
+            border: "none", borderRadius: 4,
+            padding: "7px 16px", cursor: dirty ? "pointer" : "default",
+            fontSize: 13, fontWeight: 600, fontFamily: "Arial, sans-serif",
+            transition: "background 0.15s", whiteSpace: "nowrap", height: 36,
+          }}
+        >
+          {saving ? "Saving…" : existing === null ? "Create Settings" : "Save Changes"}
+        </button>
       </div>
     </div>
   );
 }
 
-export default function ProjectsPage({ projects, projectUsers, releases, users, loadUsers, loadReleases, createProject, deleteProject, addUser, removeUser, createRelease, deleteRelease, projectSettings, loadProjectSettings, saveProjectSettings, psLoading, showToast }) {
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function ProjectsPage({
+  projects, projectUsers, releases, users,
+  loadUsers, loadReleases, createProject, deleteProject,
+  addUser, removeUser, createRelease, deleteRelease,
+  projectSettings, loadProjectSettings, saveProjectSettings, psLoading,
+  sprints, spLoading, spError, loadSprints, updateTestCaseCount, sprintCacheKey,
+  showToast,
+}) {
   const [selectedProject, setSelectedProject] = useState(null);
-  const [modal, setModal]           = useState(null);
-  const [search, setSearch]         = useState("");
-  const [memberSearch, setMemberSearch] = useState("");
+  const [modal, setModal]                 = useState(null);
+  const [search, setSearch]               = useState("");
+  const [memberSearch, setMemberSearch]   = useState("");
   const [releaseSearch, setReleaseSearch] = useState("");
+  const [activeRelease, setActiveRelease] = useState("");
 
   useEffect(() => {
     if (selectedProject) {
       loadUsers(selectedProject.project_key);
       loadReleases(selectedProject.project_key);
       loadProjectSettings(selectedProject.project_key);
+      setActiveRelease("");
     }
   }, [selectedProject]);
+
+  // When settings arrive, auto-set active release and load sprints
+  const settingsForProject = selectedProject ? projectSettings[selectedProject.project_key] : null;
+  useEffect(() => {
+    if (settingsForProject?.active_release_name && selectedProject) {
+      const rel = settingsForProject.active_release_name;
+      setActiveRelease(rel);
+      loadSprints(selectedProject.project_key, rel);
+    }
+  }, [settingsForProject]);
 
   const openProject = (p) => {
     setSelectedProject(p);
     setMemberSearch("");
     setReleaseSearch("");
+  };
+
+  const handleReleaseDropdownChange = (relName) => {
+    setActiveRelease(relName);
+    if (relName && selectedProject) loadSprints(selectedProject.project_key, relName);
   };
 
   const handleCreateProject = async (project_key, name) => {
@@ -145,46 +278,39 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
 
   const handleDeleteProject = async (project_key) => {
     if (!window.confirm("Delete this project? This cannot be undone.")) return;
-    try {
-      await deleteProject(project_key);
-      setSelectedProject(null);
-      showToast("Project deleted.");
-    } catch (e) { showToast(e.message, true); }
+    try { await deleteProject(project_key); setSelectedProject(null); showToast("Project deleted."); }
+    catch (e) { showToast(e.message, true); }
   };
 
   const handleDeleteRelease = async (release_id) => {
     if (!window.confirm("Delete this release? This cannot be undone.")) return;
-    try {
-      await deleteRelease(selectedProject.project_key, release_id);
-      showToast("Release deleted.");
-    } catch (e) { showToast(e.message, true); }
+    try { await deleteRelease(selectedProject.project_key, release_id); showToast("Release deleted."); }
+    catch (e) { showToast(e.message, true); }
   };
 
   const handleSaveSettings = async (project_key, active_release_name, completed_sprints, exists) => {
-    try {
-      await saveProjectSettings(project_key, active_release_name, completed_sprints, exists);
-      showToast("Settings saved.");
-    } catch (e) { showToast(e.message, true); }
+    try { await saveProjectSettings(project_key, active_release_name, completed_sprints, exists); showToast("Settings saved."); }
+    catch (e) { showToast(e.message, true); }
   };
 
-  const allMembers  = selectedProject ? (projectUsers[selectedProject.project_key] || []) : [];
-  const allRels     = selectedProject ? (releases[selectedProject.project_key] || []) : [];
-  const available   = users.filter(u => !allMembers.find(m => m.id === u.id));
+  const allMembers = selectedProject ? (projectUsers[selectedProject.project_key] || []) : [];
+  const allRels    = selectedProject ? (releases[selectedProject.project_key] || []) : [];
+  const available  = users.filter(u => !allMembers.find(m => m.id === u.id));
 
-  const q = search.toLowerCase();
-  const filteredProjects = projects.filter(p =>
-    p.name.toLowerCase().includes(q) ||
-    p.project_key.toLowerCase().includes(q)
-  );
+  const filteredProjects = projects.filter(p => {
+    const q = search.toLowerCase();
+    return p.name.toLowerCase().includes(q) || p.project_key.toLowerCase().includes(q);
+  });
+  const filteredMembers = allMembers.filter(u => {
+    const mq = memberSearch.toLowerCase();
+    return u.username.toLowerCase().includes(mq) || u.role.toLowerCase().includes(mq);
+  });
+  const filteredRels = allRels.filter(r => r.name.toLowerCase().includes(releaseSearch.toLowerCase()));
 
-  const mq = memberSearch.toLowerCase();
-  const filteredMembers = allMembers.filter(u =>
-    u.username.toLowerCase().includes(mq) ||
-    u.role.toLowerCase().includes(mq)
-  );
-
-  const rq = releaseSearch.toLowerCase();
-  const filteredRels = allRels.filter(r => r.name.toLowerCase().includes(rq));
+  const spKey      = selectedProject && activeRelease ? sprintCacheKey(selectedProject.project_key, activeRelease) : null;
+  const sprintData = spKey ? (sprints[spKey] || null) : null;
+  const sprintLoad = spKey ? !!spLoading[spKey] : false;
+  const sprintErr  = spKey ? (spError[spKey] || null) : null;
 
   return (
     <>
@@ -228,6 +354,7 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
           <div style={{ marginBottom: 14 }}>
             <button className="link" onClick={() => setSelectedProject(null)}>← Back to Projects</button>
           </div>
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
             <h2 style={{ fontSize: 16, fontWeight: 600 }}>
               {selectedProject.name}{" "}
@@ -240,18 +367,13 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
             </div>
           </div>
 
+          {/* Members + Releases */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-            {/* Members */}
             <div style={tableWrap}>
               <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>Members</span>
-                <input
-                  type="text"
-                  placeholder="Search members..."
-                  value={memberSearch}
-                  onChange={e => setMemberSearch(e.target.value)}
-                  style={{ width: 180, padding: "4px 8px", fontSize: 13 }}
-                />
+                <input type="text" placeholder="Search members..." value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)} style={{ width: 180, padding: "4px 8px", fontSize: 13 }} />
               </div>
               <table>
                 <thead><tr><th>Username</th><th>Role</th><th>Active</th><th></th></tr></thead>
@@ -270,17 +392,11 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
               </table>
             </div>
 
-            {/* Releases */}
             <div style={tableWrap}>
               <div style={{ ...tableHeader, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>Releases</span>
-                <input
-                  type="text"
-                  placeholder="Search releases..."
-                  value={releaseSearch}
-                  onChange={e => setReleaseSearch(e.target.value)}
-                  style={{ width: 180, padding: "4px 8px", fontSize: 13 }}
-                />
+                <input type="text" placeholder="Search releases..." value={releaseSearch}
+                  onChange={e => setReleaseSearch(e.target.value)} style={{ width: 180, padding: "4px 8px", fontSize: 13 }} />
               </div>
               <table>
                 <thead><tr><th>Name</th><th>Created</th><th></th></tr></thead>
@@ -299,13 +415,30 @@ export default function ProjectsPage({ projects, projectUsers, releases, users, 
             </div>
           </div>
 
-          {/* Project Settings — full width below */}
-          <ProjectSettingsPanel
-            projectKey={selectedProject.project_key}
-            settings={projectSettings[selectedProject.project_key]}
-            loading={!!psLoading[selectedProject.project_key]}
-            onSave={handleSaveSettings}
-          />
+          {/* Project Settings */}
+          <div style={{ marginBottom: 20 }}>
+            <ProjectSettingsPanel
+              projectKey={selectedProject.project_key}
+              settings={projectSettings[selectedProject.project_key]}
+              loading={!!psLoading[selectedProject.project_key]}
+              releaseOptions={allRels}
+              onSave={handleSaveSettings}
+              onReleaseChange={handleReleaseDropdownChange}
+            />
+          </div>
+
+          {/* Sprint Table */}
+          {activeRelease && (
+            <SprintTable
+              projectKey={selectedProject.project_key}
+              release={activeRelease}
+              sprints={sprintData}
+              loading={sprintLoad}
+              error={sprintErr}
+              onUpdate={updateTestCaseCount}
+              showToast={showToast}
+            />
+          )}
         </>
       )}
 
