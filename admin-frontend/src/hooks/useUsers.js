@@ -8,7 +8,7 @@ export function useUsers(enabled = true) {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { setUsers(await usersApi.getAll()); }
+    try { const data = await usersApi.getAll(); setUsers(Array.isArray(data) ? data : []); }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);

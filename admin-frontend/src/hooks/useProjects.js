@@ -9,7 +9,7 @@ export function useProjects(enabled = true) {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { setProjects(await projectsApi.getAll()); }
+    try { const data = await projectsApi.getAll(); setProjects(Array.isArray(data) ? data : []); }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);

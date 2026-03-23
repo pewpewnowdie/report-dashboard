@@ -12,7 +12,7 @@ export function useReport(isLoggedIn) {
     setError(null);
     try {
       const data = await api.get("/report");
-      setReport(data);
+      setReport(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e.message);
     } finally {

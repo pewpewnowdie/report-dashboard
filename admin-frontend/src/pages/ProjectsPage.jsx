@@ -297,11 +297,11 @@ export default function ProjectsPage({
     catch (e) { showToast(e.message, true); }
   };
 
-  const allMembers = selectedProject ? (projectUsers[selectedProject.project_key] || []) : [];
-  const allRels    = selectedProject ? (releases[selectedProject.project_key] || []) : [];
-  const available  = users.filter(u => !allMembers.find(m => m.id === u.id));
+  const allMembers = selectedProject ? ((projectUsers || {})[selectedProject.project_key] || []) : [];
+  const allRels    = selectedProject ? ((releases || {})[selectedProject.project_key] || []) : [];
+  const available  = (users || []).filter(u => !allMembers.find(m => m.id === u.id));
 
-  const filteredProjects = projects.filter(p => {
+  const filteredProjects = (projects || []).filter(p => {
     const q = search.toLowerCase();
     return p.name.toLowerCase().includes(q) || p.project_key.toLowerCase().includes(q);
   });
@@ -338,7 +338,7 @@ export default function ProjectsPage({
               <thead><tr><th>Project Key</th><th>Name</th><th></th></tr></thead>
               <tbody>
                 {filteredProjects.length === 0
-                  ? <tr><td colSpan={3} style={empty}>{projects.length === 0 ? "No projects found." : "No results match your search."}</td></tr>
+                  ? <tr><td colSpan={3} style={empty}>{(projects || []).length === 0 ? "No projects found." : "No results match your search."}</td></tr>
                   : filteredProjects.map(p => (
                     <tr key={p.project_key}>
                       <td style={{ fontFamily: "monospace", color: "#6b7280" }}>{p.project_key}</td>
