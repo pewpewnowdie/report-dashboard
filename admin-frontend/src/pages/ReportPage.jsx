@@ -79,12 +79,14 @@ function FrameworkCell({ utilization }) {
 // ── SVG Donut ─────────────────────────────────────────────────────────────────
 
 function buildDonutSlices(segments, cx, cy, r, innerR) {
-  const total = segments.reduce((s, e) => s + e.val, 0);
-  if (total === 0) return [];
+  const total = segments.reduce((s, e) => s + (isFinite(e.val) ? e.val : 0), 0);
+  if (total <= 0) return [];
   const slices = [];
   let angle = -Math.PI / 2;
   segments.forEach(({ key, color, val }) => {
-    const sweep = (val / total) * 2 * Math.PI;
+    const safeVal = isFinite(val) ? val : 0;
+    if (safeVal <= 0) return;
+    const sweep = (safeVal / total) * 2 * Math.PI;
     const x1  = cx + r      * Math.cos(angle);
     const y1  = cy + r      * Math.sin(angle);
     const x2  = cx + r      * Math.cos(angle + sweep);
@@ -108,7 +110,7 @@ function buildDonutSlices(segments, cx, cy, r, innerR) {
 
 function FrameworkPie({ data }) {
   const entries = Object.entries(FRAMEWORK_LABELS)
-    .map(([key, label]) => ({ key, label, val: parseFloat(data[key]) || 0, color: FRAMEWORK_COLORS[key].pie }))
+    .map(([key, label]) => ({ key, label, val: isFinite(parseFloat(data[key])) ? parseFloat(data[key]) : 0, color: FRAMEWORK_COLORS[key].pie }))
     .filter(e => e.val > 0)
     .sort((a, b) => b.val - a.val);
 
@@ -140,7 +142,7 @@ function FrameworkPie({ data }) {
 }
 
 function PercentPie({ title, subtitle, value, color, trackColor, centerLabel }) {
-  const pct = Math.min(Math.max(parseFloat(value) || 0, 0), 100);
+  const pct = isFinite(parseFloat(value)) ? Math.min(Math.max(parseFloat(value), 0), 100) : 0;
   const remainder = 100 - pct;
   const segments = [
     { key: "val",  val: pct,       color },
