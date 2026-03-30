@@ -7,6 +7,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import UsersPage from "./pages/UsersPage";
 import ReleasesPage from "./pages/ReleasesPage";
 import ReportPage from "./pages/ReportPage";
+import CreatePage from "./pages/CreatePage";
 import { useAuth } from "./hooks/useAuth";
 import { useProjects } from "./hooks/useProjects";
 import { useUsers } from "./hooks/useUsers";
@@ -107,6 +108,13 @@ export default function App() {
             loading={rLoading}
             error={rError}
             reload={reloadReport}
+          />
+        )}
+
+        {view === "create" && (
+          <CreatePage
+            projects={projects}
+            showToast={showToast}
           />
         )}
       </div>
