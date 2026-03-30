@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 
-const BASE_URL = "/admin";
+const BASE_URL = "http://107.99.131.109:8080/admin";
 
 async function uploadRun(endpoint, formData) {
   const token = localStorage.getItem("admin_token");

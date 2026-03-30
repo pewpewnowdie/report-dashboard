@@ -182,11 +182,12 @@ function StatusBanner({ status, message, onDismiss }) {
 }
 
 // ── Submit button ──────────────────────────────────────────────────────────────
-function SubmitBtn({ loading, label }) {
+function SubmitBtn({ loading, label, onClick }) {
   return (
     <button
       type="button"
       disabled={loading}
+      onClick={onClick}
       style={{
         background: loading ? "#93c5fd" : "#2563eb", color: "#fff",
         border: "none", borderRadius: 4, padding: "9px 20px",
@@ -243,7 +244,7 @@ function PytestForm({ projects, createPytestRun, loading }) {
         </div>
       </div>
       <div style={{ marginTop: 4 }}>
-        <SubmitBtn loading={loading} label="Create Pytest Run" />
+        <SubmitBtn loading={loading} label="Create Pytest Run" onClick={handleSubmit} />
       </div>
     </div>
   );
@@ -284,7 +285,7 @@ function RobotForm({ projects, createRobotRun, loading }) {
         </div>
       </div>
       <div style={{ marginTop: 4 }}>
-        <SubmitBtn loading={loading} label="Create Robot Run" />
+        <SubmitBtn loading={loading} label="Create Robot Run" onClick={handleSubmit} />
       </div>
     </div>
   );
@@ -326,7 +327,7 @@ function JmeterForm({ projects, createJmeterRun, loading }) {
         </div>
       </div>
       <div style={{ marginTop: 4 }}>
-        <SubmitBtn loading={loading} label="Create JMeter Run" />
+        <SubmitBtn loading={loading} label="Create JMeter Run" onClick={handleSubmit} />
       </div>
     </div>
   );
